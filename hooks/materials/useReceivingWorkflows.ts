@@ -10,6 +10,10 @@ export interface SteelTagEntryInput {
   tag_no: string;
   weight: string;
   location: string;
+  dimension_w?: number;
+  dimension_l?: number;
+  dimension_h?: number;
+  po_item_id?: string;
 }
 
 export interface POReceiveItemInput {
@@ -62,6 +66,10 @@ export function useReceivingWorkflows() {
           purchase_order_id: input.poId,
           location: entry.location || undefined,
           received_at: input.receivedAt,
+          po_item_id: entry.po_item_id,
+          dimension_w: entry.dimension_w,
+          dimension_l: entry.dimension_l,
+          dimension_h: entry.dimension_h,
         }));
       }
     }
@@ -114,6 +122,10 @@ export function useReceivingWorkflows() {
             status: 'AVAILABLE',
             location: entry.location || undefined,
             received_at: input.receivedAt,
+            po_item_id: entry.po_item_id,
+            dimension_w: entry.dimension_w,
+            dimension_l: entry.dimension_l,
+            dimension_h: entry.dimension_h,
           }),
         ),
     );

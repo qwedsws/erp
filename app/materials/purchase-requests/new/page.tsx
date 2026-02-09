@@ -10,6 +10,7 @@ import { useMaterials } from '@/hooks/materials/useMaterials';
 import { useStocks } from '@/hooks/materials/useStocks';
 import { useProfiles } from '@/hooks/admin/useProfiles';
 import { usePurchaseRequests } from '@/hooks/procurement/usePurchaseRequests';
+import { calcSteelWeight, calcSteelPrice } from '@/lib/utils';
 
 const inputClass =
   'w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring';
@@ -29,6 +30,10 @@ export default function NewPurchaseRequestPage() {
     reason: '',
     requested_by: '',
     notes: '',
+    // STEEL dimension fields
+    dimension_w: '',
+    dimension_l: '',
+    dimension_h: '',
   });
 
   const materialById = useMemo(
@@ -40,10 +45,51 @@ export default function NewPurchaseRequestPage() {
     [stocks],
   );
 
+  const selectedMaterial = form.material_id ? materialById.get(form.material_id) : null;
+  const isSteel = selectedMaterial?.category === 'STEEL' && !!selectedMaterial.density && !!selectedMaterial.price_per_kg;
+
+  // STEEL calculations
+  const steelCalc = useMemo(() => {
+    if (!isSteel || !selectedMaterial?.density || !selectedMaterial?.price_per_kg) {
+      return { pieceWeight: 0, totalWeight: 0, estimatedAmount: 0 };
+    }
+    const w = Number(form.dimension_w) || 0;
+    const l = Number(form.dimension_l) || 0;
+    const h = Number(form.dimension_h) || 0;
+    const qty = Number(form.quantity) || 0;
+
+    const pieceWeight = (w > 0 && l > 0 && h > 0)
+      ? calcSteelWeight(selectedMaterial.density, w, l, h)
+      : 0;
+    const totalWeight = Math.round(pieceWeight * qty * 100) / 100;
+    const estimatedAmount = totalWeight > 0
+      ? calcSteelPrice(totalWeight, selectedMaterial.price_per_kg)
+      : 0;
+
+    return { pieceWeight, totalWeight, estimatedAmount };
+  }, [isSteel, selectedMaterial, form.dimension_w, form.dimension_l, form.dimension_h, form.quantity]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+      // When material changes, auto-fill dimensions from material defaults
+      if (name === 'material_id' && value) {
+        const mat = materialById.get(value);
+        if (mat?.category === 'STEEL' && mat.density && mat.price_per_kg) {
+          updated.dimension_w = mat.dimension_w ? String(mat.dimension_w) : '';
+          updated.dimension_l = mat.dimension_l ? String(mat.dimension_l) : '';
+          updated.dimension_h = mat.dimension_h ? String(mat.dimension_h) : '';
+        } else {
+          updated.dimension_w = '';
+          updated.dimension_l = '';
+          updated.dimension_h = '';
+        }
+      }
+      return updated;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,6 +106,10 @@ export default function NewPurchaseRequestPage() {
       return;
     }
 
+    const dimW = Number(form.dimension_w) || undefined;
+    const dimL = Number(form.dimension_l) || undefined;
+    const dimH = Number(form.dimension_h) || undefined;
+
     const result = await addPurchaseRequest({
       material_id: form.material_id,
       quantity: qty,
@@ -68,6 +118,13 @@ export default function NewPurchaseRequestPage() {
       requested_by: form.requested_by,
       status: 'PENDING' as const,
       notes: form.notes || undefined,
+      // Include STEEL dimension fields
+      ...(isSteel && dimW && dimL && dimH ? {
+        dimension_w: dimW,
+        dimension_l: dimL,
+        dimension_h: dimH,
+        piece_weight: steelCalc.pieceWeight > 0 ? Math.round(steelCalc.pieceWeight * 1000) / 1000 : undefined,
+      } : {}),
     });
     if (result.ok) {
       showSuccess('구매 요청이 등록되었습니다.');
@@ -126,6 +183,82 @@ export default function NewPurchaseRequestPage() {
               })}
             </select>
           </div>
+
+          {/* STEEL Material Info */}
+          {isSteel && selectedMaterial && (
+            <div className="p-3 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs space-y-1">
+              <p className="text-blue-700 dark:text-blue-300 font-medium">
+                강재 정보: {selectedMaterial.steel_grade || selectedMaterial.name}
+              </p>
+              <p className="text-blue-700 dark:text-blue-300">
+                밀도: {selectedMaterial.density} g/cm3 | kg당 단가: {selectedMaterial.price_per_kg?.toLocaleString()} 원/kg
+              </p>
+            </div>
+          )}
+
+          {/* STEEL Dimension Inputs */}
+          {isSteel && (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium">치수 (mm)</label>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">가로(W)</label>
+                  <input
+                    name="dimension_w"
+                    type="number"
+                    value={form.dimension_w}
+                    onChange={handleChange}
+                    placeholder="0"
+                    min="0"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">세로(L)</label>
+                  <input
+                    name="dimension_l"
+                    type="number"
+                    value={form.dimension_l}
+                    onChange={handleChange}
+                    placeholder="0"
+                    min="0"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">높이(H)</label>
+                  <input
+                    name="dimension_h"
+                    type="number"
+                    value={form.dimension_h}
+                    onChange={handleChange}
+                    placeholder="0"
+                    min="0"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {/* STEEL Calculated Values */}
+              {steelCalc.pieceWeight > 0 && (
+                <div className="p-3 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs space-y-1">
+                  <p className="text-emerald-700 dark:text-emerald-300">
+                    건당 이론 중량: {steelCalc.pieceWeight.toFixed(3)} kg
+                  </p>
+                  {steelCalc.totalWeight > 0 && (
+                    <p className="text-emerald-700 dark:text-emerald-300">
+                      총 중량: {steelCalc.totalWeight.toFixed(2)} kg
+                    </p>
+                  )}
+                  {steelCalc.estimatedAmount > 0 && (
+                    <p className="text-emerald-700 dark:text-emerald-300 font-medium">
+                      예상 금액: {steelCalc.estimatedAmount.toLocaleString()}원
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 수량 */}
           <div>

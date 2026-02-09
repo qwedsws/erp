@@ -139,6 +139,8 @@ function NewReceivingContent() {
       steelTagCountByMaterialId,
       directMaterialId: directForm.material_id,
       directQuantity: directForm.quantity,
+      purchaseOrderById,
+      selectedPOId,
     });
 
   // 발주 기반 입고 저장

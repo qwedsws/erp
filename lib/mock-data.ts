@@ -137,6 +137,8 @@ export const mockMaterials: Material[] = [
   // CONSUMABLE — 소모품 신규
   { id: 'mat13', material_code: 'CON-OIL-001', name: '수용성 절삭유', category: 'CONSUMABLE', specification: '20L 드럼', unit: 'L', unit_price: 5500, safety_stock: 40, lead_time: 2, supplier_id: 'sup2', min_order_qty: 20, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
   { id: 'mat14', material_code: 'CON-FIL-001', name: '오일미스트 필터', category: 'CONSUMABLE', specification: '300×300×50mm HEPA', unit: 'EA', unit_price: 35000, safety_stock: 5, lead_time: 5, supplier_id: 'sup2', min_order_qty: 5, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  // STEEL — AL6061 알루미늄 (v2: 치수 없이 강종 마스터만 등록)
+  { id: 'mat15', material_code: 'STL-AL6061', name: 'AL6061 알루미늄', category: 'STEEL', specification: '알루미늄 합금 6061', unit: 'KG', inventory_unit: 'EA', safety_stock: 5, lead_time: 5, supplier_id: 'sup1', steel_grade: 'AL6061', density: 2.71, price_per_kg: 12000, weight_method: 'MEASURED', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
 ];
 
 export const mockStocks: Stock[] = [
@@ -154,6 +156,7 @@ export const mockStocks: Stock[] = [
   { id: 'stk12', material_id: 'mat12', location_code: 'D-1-03', quantity: 40, avg_unit_price: 8500, updated_at: '2026-02-01T00:00:00Z' },
   { id: 'stk13', material_id: 'mat13', location_code: 'E-1-01', quantity: 60, avg_unit_price: 5500, updated_at: '2026-02-01T00:00:00Z' },
   { id: 'stk14', material_id: 'mat14', location_code: 'E-1-02', quantity: 8, avg_unit_price: 35000, updated_at: '2026-02-01T00:00:00Z' },
+  { id: 'stk15', material_id: 'mat15', location_code: 'A-3-01', quantity: 5, avg_unit_price: 0, updated_at: '2026-02-10T00:00:00Z' },
 ];
 
 export const mockStockMovements: StockMovement[] = [
@@ -170,6 +173,11 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
   { id: 'po2', po_no: 'PO-2026-002', supplier_id: 'sup2', status: 'RECEIVED', order_date: '2026-01-20', due_date: '2026-01-25', total_amount: 4400000, items: [{ id: 'poi2', material_id: 'mat4', quantity: 10, unit_price: 350000, received_quantity: 10 }, { id: 'poi3', material_id: 'mat8', quantity: 5, unit_price: 180000, received_quantity: 5 }], created_by: 'p4', created_at: '2026-01-20T00:00:00Z', updated_at: '2026-01-28T00:00:00Z' },
   { id: 'po3', po_no: 'PO-2026-003', supplier_id: 'sup4', status: 'ORDERED', order_date: '2026-02-01', due_date: '2026-02-22', total_amount: 8500000, items: [{ id: 'poi4', material_id: 'mat7', quantity: 1, unit_price: 8500000 }], created_by: 'p4', created_at: '2026-02-01T00:00:00Z', updated_at: '2026-02-01T00:00:00Z' },
   { id: 'po4', po_no: 'PO-2026-004', supplier_id: 'sup1', status: 'DRAFT', order_date: '2026-02-08', due_date: '2026-02-18', total_amount: 7300000, items: [{ id: 'poi5', material_id: 'mat2', quantity: 1, unit_price: 3200000 }, { id: 'poi6', material_id: 'mat3', quantity: 1, unit_price: 4100000 }], created_by: 'p4', created_at: '2026-02-08T00:00:00Z', updated_at: '2026-02-08T00:00:00Z' },
+  { id: 'po5', po_no: 'PO-2026-005', supplier_id: 'sup1', status: 'ORDERED', order_date: '2026-02-10', due_date: '2026-02-20', total_amount: 5658480, items: [
+    { id: 'poi7', material_id: 'mat15', quantity: 3, unit_price: 1365840, dimension_w: 400, dimension_l: 300, dimension_h: 350, piece_weight: 113.82, total_weight: 341.46 },
+    { id: 'poi8', material_id: 'mat15', quantity: 2, unit_price: 487800, dimension_w: 500, dimension_l: 200, dimension_h: 150, piece_weight: 40.65, total_weight: 81.30 },
+    { id: 'poi9', material_id: 'mat15', quantity: 1, unit_price: 585360, dimension_w: 300, dimension_l: 300, dimension_h: 200, piece_weight: 48.78, total_weight: 48.78 },
+  ], created_by: 'p4', created_at: '2026-02-10T00:00:00Z', updated_at: '2026-02-10T00:00:00Z' },
 ];
 
 // --- Quality Mock Data ---
@@ -261,9 +269,15 @@ export const mockPurchaseRequests: PurchaseRequest[] = [
 
 // Steel Tags — 강재 개별 태그 추적
 export const initialSteelTags: SteelTag[] = [
-  { id: 'stag1', material_id: 'mat1', tag_no: 'NAK80-2601-001', weight: 328.5, status: 'IN_USE', project_id: 'pj1', location: 'MCT-1', received_at: '2026-01-15', issued_at: '2026-01-20', created_at: '2026-01-15T00:00:00Z', updated_at: '2026-01-20T00:00:00Z' },
-  { id: 'stag2', material_id: 'mat1', tag_no: 'NAK80-2601-002', weight: 330.1, status: 'AVAILABLE', location: 'A-1-3', received_at: '2026-01-15', created_at: '2026-01-15T00:00:00Z', updated_at: '2026-01-15T00:00:00Z' },
-  { id: 'stag3', material_id: 'mat2', tag_no: 'SKD11-2601-001', weight: 460.8, status: 'USED', project_id: 'pj2', received_at: '2026-01-10', issued_at: '2026-01-12', created_at: '2026-01-10T00:00:00Z', updated_at: '2026-01-18T00:00:00Z' },
-  { id: 'stag4', material_id: 'mat2', tag_no: 'SKD11-2602-001', weight: 463.2, status: 'AVAILABLE', location: 'A-2-1', received_at: '2026-02-03', created_at: '2026-02-03T00:00:00Z', updated_at: '2026-02-03T00:00:00Z' },
-  { id: 'stag5', material_id: 'mat3', tag_no: 'SKD61-2601-001', weight: 813.5, status: 'ALLOCATED', project_id: 'pj3', location: 'B-1-2', received_at: '2026-01-20', created_at: '2026-01-20T00:00:00Z', updated_at: '2026-02-01T00:00:00Z' },
+  { id: 'stag1', material_id: 'mat1', tag_no: 'NAK80-2601-001', weight: 328.5, status: 'IN_USE', project_id: 'pj1', location: 'MCT-1', received_at: '2026-01-15', issued_at: '2026-01-20', dimension_w: 400, dimension_l: 300, dimension_h: 350, created_at: '2026-01-15T00:00:00Z', updated_at: '2026-01-20T00:00:00Z' },
+  { id: 'stag2', material_id: 'mat1', tag_no: 'NAK80-2601-002', weight: 330.1, status: 'AVAILABLE', location: 'A-1-3', received_at: '2026-01-15', dimension_w: 400, dimension_l: 300, dimension_h: 350, created_at: '2026-01-15T00:00:00Z', updated_at: '2026-01-15T00:00:00Z' },
+  { id: 'stag3', material_id: 'mat2', tag_no: 'SKD11-2601-001', weight: 460.8, status: 'USED', project_id: 'pj2', received_at: '2026-01-10', issued_at: '2026-01-12', dimension_w: 500, dimension_l: 400, dimension_h: 300, created_at: '2026-01-10T00:00:00Z', updated_at: '2026-01-18T00:00:00Z' },
+  { id: 'stag4', material_id: 'mat2', tag_no: 'SKD11-2602-001', weight: 463.2, status: 'AVAILABLE', location: 'A-2-1', received_at: '2026-02-03', dimension_w: 500, dimension_l: 400, dimension_h: 300, created_at: '2026-02-03T00:00:00Z', updated_at: '2026-02-03T00:00:00Z' },
+  { id: 'stag5', material_id: 'mat3', tag_no: 'SKD61-2601-001', weight: 813.5, status: 'ALLOCATED', project_id: 'pj3', location: 'B-1-2', received_at: '2026-01-20', dimension_w: 600, dimension_l: 500, dimension_h: 350, created_at: '2026-01-20T00:00:00Z', updated_at: '2026-02-01T00:00:00Z' },
+  // AL6061 태그 (PO-2026-005 입고)
+  { id: 'stag6', material_id: 'mat15', tag_no: 'AL6061-2602-001', weight: 113.5, status: 'AVAILABLE' as const, purchase_order_id: 'po5', po_item_id: 'poi7', location: 'A-3-1', dimension_w: 400, dimension_l: 300, dimension_h: 350, received_at: '2026-02-12', created_at: '2026-02-12T00:00:00Z', updated_at: '2026-02-12T00:00:00Z' },
+  { id: 'stag7', material_id: 'mat15', tag_no: 'AL6061-2602-002', weight: 114.1, status: 'AVAILABLE' as const, purchase_order_id: 'po5', po_item_id: 'poi7', location: 'A-3-2', dimension_w: 400, dimension_l: 300, dimension_h: 350, received_at: '2026-02-12', created_at: '2026-02-12T00:00:00Z', updated_at: '2026-02-12T00:00:00Z' },
+  { id: 'stag8', material_id: 'mat15', tag_no: 'AL6061-2602-003', weight: 40.3, status: 'ALLOCATED' as const, project_id: 'pj3', purchase_order_id: 'po5', po_item_id: 'poi8', location: 'B-2-1', dimension_w: 500, dimension_l: 200, dimension_h: 150, received_at: '2026-02-12', created_at: '2026-02-12T00:00:00Z', updated_at: '2026-02-12T00:00:00Z' },
+  { id: 'stag9', material_id: 'mat15', tag_no: 'AL6061-2602-004', weight: 41.0, status: 'AVAILABLE' as const, purchase_order_id: 'po5', po_item_id: 'poi8', location: 'B-2-2', dimension_w: 500, dimension_l: 200, dimension_h: 150, received_at: '2026-02-12', created_at: '2026-02-12T00:00:00Z', updated_at: '2026-02-12T00:00:00Z' },
+  { id: 'stag10', material_id: 'mat15', tag_no: 'AL6061-2602-005', weight: 48.5, status: 'AVAILABLE' as const, purchase_order_id: 'po5', po_item_id: 'poi9', location: 'B-2-3', dimension_w: 300, dimension_l: 300, dimension_h: 200, received_at: '2026-02-12', created_at: '2026-02-12T00:00:00Z', updated_at: '2026-02-12T00:00:00Z' },
 ];

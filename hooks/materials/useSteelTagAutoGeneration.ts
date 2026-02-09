@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { generateSteelTagNo } from '@/lib/utils';
-import type { Material } from '@/domain/shared/entities';
+import { generateSteelTagNo, calcSteelWeight } from '@/lib/utils';
+import type { Material, PurchaseOrder } from '@/domain/shared/entities';
 import type { ReceiveItemForm } from '@/app/materials/receiving/new/page';
 
 /** Mirrors the SteelTagEntry interface from the steel-tag-table component. */
@@ -10,6 +10,10 @@ export interface SteelTagEntry {
   tag_no: string;
   weight: string;
   location: string;
+  dimension_w?: number;
+  dimension_l?: number;
+  dimension_h?: number;
+  po_item_id?: string;
 }
 
 interface UseSteelTagAutoGenerationParams {
@@ -18,6 +22,9 @@ interface UseSteelTagAutoGenerationParams {
   steelTagCountByMaterialId: Map<string, number>;
   directMaterialId: string;
   directQuantity: string;
+  /** PO lookup map — used to inherit PO item dimensions */
+  purchaseOrderById?: Map<string, PurchaseOrder>;
+  selectedPOId?: string;
 }
 
 /**
@@ -35,6 +42,8 @@ export function useSteelTagAutoGeneration({
   steelTagCountByMaterialId,
   directMaterialId,
   directQuantity,
+  purchaseOrderById,
+  selectedPOId,
 }: UseSteelTagAutoGenerationParams) {
   // === PO-based steel tag entries ===
   const [steelTagEntries, setSteelTagEntries] = useState<Record<string, SteelTagEntry[]>>({});
@@ -55,6 +64,12 @@ export function useSteelTagAutoGeneration({
       return;
     }
 
+    // Look up PO to find item-level dimensions
+    const po = selectedPOId && purchaseOrderById ? purchaseOrderById.get(selectedPOId) : undefined;
+    const poItemById = new Map(
+      (po?.items || []).map(poItem => [poItem.id, poItem]),
+    );
+
     setSteelTagEntries(prev => {
       const next: Record<string, SteelTagEntry[]> = {};
       for (const item of steelItems) {
@@ -64,6 +79,23 @@ export function useSteelTagAutoGeneration({
         const needed = item.receiveQty;
 
         if (needed <= 0) continue;
+
+        // Inherit dimensions from the PO item (if available)
+        const poItem = poItemById.get(item.id);
+        const dimW = poItem?.dimension_w;
+        const dimL = poItem?.dimension_l;
+        const dimH = poItem?.dimension_h;
+        const hasDims = dimW != null && dimL != null && dimH != null;
+
+        // Calculate weight from PO item dims + material density when CALCULATED
+        let autoWeight = '';
+        if (mat.weight_method === 'CALCULATED' && hasDims && mat.density) {
+          autoWeight = String(
+            Math.round(calcSteelWeight(mat.density, dimW, dimL, dimH) * 100) / 100,
+          );
+        } else if (mat.weight_method === 'CALCULATED') {
+          autoWeight = String(mat.weight || 0);
+        }
 
         if (existing.length === needed) {
           // No quantity change — preserve existing inputs as-is
@@ -75,8 +107,12 @@ export function useSteelTagAutoGeneration({
           for (let i = existing.length; i < needed; i++) {
             entries.push({
               tag_no: generateSteelTagNo(mat.steel_grade || mat.name, existingTagCount + i + 1),
-              weight: mat.weight_method === 'CALCULATED' ? String(mat.weight || 0) : '',
+              weight: autoWeight,
               location: '',
+              dimension_w: dimW,
+              dimension_l: dimL,
+              dimension_h: dimH,
+              po_item_id: poItem?.id,
             });
           }
           next[item.id] = entries;
@@ -87,7 +123,7 @@ export function useSteelTagAutoGeneration({
       }
       return next;
     });
-  }, [receiveItems, materialById, steelTagCountByMaterialId]);
+  }, [receiveItems, materialById, steelTagCountByMaterialId, purchaseOrderById, selectedPOId]);
 
   // [Issue 2 fix] Direct receiving STEEL tag auto-generation — preserve existing inputs
   useEffect(() => {

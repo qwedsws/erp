@@ -44,6 +44,19 @@ export type {
   Payment,
   MaterialPrice,
   PurchaseRequest,
+  GLAccount,
+  GLAccountType,
+  JournalEntry,
+  JournalEntryStatus,
+  JournalLine,
+  AROpenItem,
+  AROpenItemStatus,
+  APOpenItem,
+  APOpenItemStatus,
+  AccountingEvent,
+  AccountingEventType,
+  AccountingEventStatus,
+  AccountingSourceType,
 } from '@/domain/shared/entities';
 
 export type QuoteStatus = 'DRAFT' | 'SUBMITTED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
@@ -73,4 +86,10 @@ export {
   STEEL_WEIGHT_METHOD_MAP,
   STEEL_TAG_STATUS_MAP,
   STEEL_GRADE_DENSITY,
+  JOURNAL_ENTRY_STATUS_MAP,
+  AR_STATUS_MAP,
+  AP_STATUS_MAP,
+  ACCOUNTING_SOURCE_TYPE_MAP,
+  GL_ACCOUNT_TYPE_MAP,
+  ACCOUNTING_EVENT_STATUS_MAP,
 } from './display';

@@ -39,7 +39,7 @@ export function SteelSection({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>강종 (Steel Grade)</label>
+          <label className={labelClass}>강종 (Steel Grade) *</label>
           <select
             name="steel_grade"
             value={form.steel_grade}
@@ -70,51 +70,56 @@ export function SteelSection({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <label className={labelClass}>가로 W (mm)</label>
-          <input
-            name="dimension_w"
-            type="number"
-            value={form.dimension_w}
-            onChange={onChange}
-            placeholder="0"
-            className={inputClass}
-          />
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground/70">기본 치수 (선택)</span>
         </div>
-        <div>
-          <label className={labelClass}>세로 L (mm)</label>
-          <input
-            name="dimension_l"
-            type="number"
-            value={form.dimension_l}
-            onChange={onChange}
-            placeholder="0"
-            className={inputClass}
-          />
+        <p className="text-xs text-amber-600">
+          * 치수(W×L×H)는 발주/구매요청 시 지정합니다. 여기서는 기본값(선택)을 설정할 수 있습니다.
+        </p>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs mb-1.5 text-muted-foreground/70">가로 W (mm)</label>
+            <input
+              name="dimension_w"
+              type="number"
+              value={form.dimension_w}
+              onChange={onChange}
+              placeholder="미지정"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1.5 text-muted-foreground/70">세로 L (mm)</label>
+            <input
+              name="dimension_l"
+              type="number"
+              value={form.dimension_l}
+              onChange={onChange}
+              placeholder="미지정"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1.5 text-muted-foreground/70">높이 H (mm)</label>
+            <input
+              name="dimension_h"
+              type="number"
+              value={form.dimension_h}
+              onChange={onChange}
+              placeholder="미지정"
+              className={inputClass}
+            />
+          </div>
         </div>
-        <div>
-          <label className={labelClass}>높이 H (mm)</label>
-          <input
-            name="dimension_h"
-            type="number"
-            value={form.dimension_h}
-            onChange={onChange}
-            placeholder="0"
-            className={inputClass}
-          />
+        <div className="h-9 px-3 flex items-center rounded-md border border-input bg-muted text-sm text-muted-foreground">
+          {steelCalc.weight > 0
+            ? `참고 이론 중량: ${steelCalc.weight.toFixed(2)} kg`
+            : '치수 미지정 — 발주 시 개별 지정'}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass}>이론 중량</label>
-          <div className="h-9 px-3 flex items-center rounded-md border border-input bg-muted text-sm text-muted-foreground">
-            {steelCalc.weight > 0
-              ? `${steelCalc.weight.toFixed(2)} kg/EA`
-              : '치수를 입력하세요'}
-          </div>
-        </div>
         <div>
           <label className={labelClass}>중량 산정 방식</label>
           <div className="flex items-center gap-4 h-9">

@@ -14,8 +14,7 @@ export class SupabaseMaterialRepository implements IMaterialRepository {
   }
 
   async findById(id: string): Promise<Material | null> {
-    const all = await this.findAll();
-    return all.find(m => m.id === id) ?? null;
+    return sb.fetchMaterialById(id);
   }
 
   async create(input: Omit<Material, 'id' | 'created_at' | 'updated_at'>): Promise<Material> {
@@ -43,8 +42,7 @@ export class SupabaseStockRepository implements IStockRepository {
   }
 
   async findByMaterialId(materialId: string): Promise<Stock | null> {
-    const all = await this.findAll();
-    return all.find(s => s.material_id === materialId) ?? null;
+    return sb.fetchStockByMaterialId(materialId);
   }
 
   async upsert(stock: Stock): Promise<Stock> {
@@ -73,8 +71,7 @@ export class SupabaseMaterialPriceRepository implements IMaterialPriceRepository
   }
 
   async findByMaterial(materialId: string): Promise<MaterialPrice[]> {
-    const all = await this.findAll();
-    return all.filter(mp => mp.material_id === materialId);
+    return sb.fetchMaterialPricesByMaterial(materialId);
   }
 
   async create(data: Omit<MaterialPrice, 'id' | 'created_at'>): Promise<MaterialPrice> {
@@ -96,8 +93,7 @@ export class SupabaseSteelTagRepository implements ISteelTagRepository {
   }
 
   async findById(id: string): Promise<SteelTag | null> {
-    const all = await this.findAll();
-    return all.find(t => t.id === id) ?? null;
+    return sb.fetchSteelTagById(id);
   }
 
   async create(input: Omit<SteelTag, 'id' | 'created_at' | 'updated_at'>): Promise<SteelTag> {

@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { STEEL_TAG_STATUS_MAP, type Material, type Project, type SteelTag, type SteelTagStatus } from '@/types';
 
@@ -48,6 +49,31 @@ export function SteelTagSection({
   handleCompleteTag,
   handleScrapTag,
 }: SteelTagSectionProps) {
+  // Build dimension-grouped summary per material (grade)
+  const dimensionSummary = useMemo(() => {
+    const materialMap = new Map<string, { grade: string; dims: Map<string, { total: number; available: number }> }>();
+    for (const tag of steelTagData) {
+      const grade = tag.material?.steel_grade || '기타';
+      let entry = materialMap.get(grade);
+      if (!entry) {
+        entry = { grade, dims: new Map() };
+        materialMap.set(grade, entry);
+      }
+      const hasTagDim = tag.dimension_w && tag.dimension_l && tag.dimension_h;
+      const hasMatDim = tag.material?.dimension_w && tag.material?.dimension_l && tag.material?.dimension_h;
+      const dimKey = hasTagDim
+        ? `${tag.dimension_w}\u00D7${tag.dimension_l}\u00D7${tag.dimension_h}`
+        : hasMatDim
+          ? `${tag.material!.dimension_w}\u00D7${tag.material!.dimension_l}\u00D7${tag.material!.dimension_h}`
+          : '미지정';
+      const dimEntry = entry.dims.get(dimKey) ?? { total: 0, available: 0 };
+      dimEntry.total += 1;
+      if (tag.status === 'AVAILABLE') dimEntry.available += 1;
+      entry.dims.set(dimKey, dimEntry);
+    }
+    return Array.from(materialMap.values());
+  }, [steelTagData]);
+
   return (
     <div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
@@ -78,6 +104,30 @@ export function SteelTagSection({
         </div>
       </div>
 
+      {dimensionSummary.length > 0 && (
+        <div className="mb-4 p-3 rounded-md bg-muted/30 border border-border">
+          <p className="text-xs font-medium text-muted-foreground mb-2">강종별 치수 재고 요약</p>
+          <div className="space-y-1 text-xs">
+            {dimensionSummary.map((entry) => (
+              <div key={entry.grade} className="flex flex-wrap gap-x-1">
+                <span className="font-semibold">{entry.grade}:</span>
+                <span>
+                  가용 {Array.from(entry.dims.values()).reduce((s, d) => s + d.available, 0)}EA
+                </span>
+                <span className="text-muted-foreground">
+                  ({Array.from(entry.dims.entries()).map(([dim, stats], i) => (
+                    <span key={dim}>
+                      {i > 0 ? ', ' : ''}
+                      {dim}: {stats.available}EA
+                    </span>
+                  ))})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -85,7 +135,7 @@ export function SteelTagSection({
               <tr className="bg-muted/50 border-b border-border">
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">태그 번호</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">강종</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">치수</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">치수(mm)</th>
                 <th className="text-right px-4 py-3 font-medium text-muted-foreground">중량</th>
                 <th className="text-center px-4 py-3 font-medium text-muted-foreground">상태</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">프로젝트</th>
@@ -108,11 +158,14 @@ export function SteelTagSection({
                   const canIssue = availableActions.includes('ISSUE');
                   const canComplete = availableActions.includes('COMPLETE');
                   const canScrap = availableActions.includes('SCRAP');
-                  const dimension = tag.material
-                    ? [tag.material.dimension_w, tag.material.dimension_l, tag.material.dimension_h]
-                        .filter(Boolean)
-                        .join(' x ')
-                    : '-';
+                  // Prefer tag-level dimensions; fall back to material-level
+                  const hasTagDim = tag.dimension_w && tag.dimension_l && tag.dimension_h;
+                  const hasMatDim = tag.material?.dimension_w && tag.material?.dimension_l && tag.material?.dimension_h;
+                  const dimension = hasTagDim
+                    ? `${tag.dimension_w}\u00D7${tag.dimension_l}\u00D7${tag.dimension_h}`
+                    : hasMatDim
+                      ? `${tag.material!.dimension_w}\u00D7${tag.material!.dimension_l}\u00D7${tag.material!.dimension_h}`
+                      : '\u2014';
 
                   return (
                     <tr key={tag.id} className="border-b border-border hover:bg-muted/30">

@@ -20,6 +20,12 @@ import type {
   ToolType,
   SteelWeightMethod,
   SteelTagStatus,
+  GLAccountType,
+  JournalEntryStatus,
+  AROpenItemStatus,
+  APOpenItemStatus,
+  AccountingSourceType,
+  AccountingEventStatus,
 } from '@/domain/shared/entities';
 
 export const PROJECT_STATUS_MAP: Record<ProjectStatus, { label: string; color: string }> = {
@@ -196,7 +202,46 @@ export const STEEL_TAG_STATUS_MAP: Record<SteelTagStatus, { label: string; color
   SCRAP: { label: '폐기', color: 'bg-red-100 text-red-800' },
 };
 
+export const JOURNAL_ENTRY_STATUS_MAP: Record<JournalEntryStatus, { label: string; color: string }> = {
+  POSTED: { label: '전기', color: 'bg-green-100 text-green-800' },
+  REVERSED: { label: '역분개', color: 'bg-red-100 text-red-800' },
+};
+
+export const AR_STATUS_MAP: Record<AROpenItemStatus, { label: string; color: string }> = {
+  OPEN: { label: '미수', color: 'bg-red-100 text-red-800' },
+  PARTIAL: { label: '부분수금', color: 'bg-yellow-100 text-yellow-800' },
+  CLOSED: { label: '완료', color: 'bg-green-100 text-green-800' },
+};
+
+export const AP_STATUS_MAP: Record<APOpenItemStatus, { label: string; color: string }> = {
+  OPEN: { label: '미지급', color: 'bg-red-100 text-red-800' },
+  PARTIAL: { label: '부분지급', color: 'bg-yellow-100 text-yellow-800' },
+  CLOSED: { label: '완료', color: 'bg-green-100 text-green-800' },
+};
+
+export const ACCOUNTING_SOURCE_TYPE_MAP: Record<AccountingSourceType, string> = {
+  ORDER: '수주',
+  PAYMENT: '입금',
+  PURCHASE_ORDER: '발주',
+  STOCK_MOVEMENT: '자재출고',
+};
+
+export const GL_ACCOUNT_TYPE_MAP: Record<GLAccountType, string> = {
+  ASSET: '자산',
+  LIABILITY: '부채',
+  EQUITY: '자본',
+  REVENUE: '수익',
+  EXPENSE: '비용',
+};
+
+export const ACCOUNTING_EVENT_STATUS_MAP: Record<AccountingEventStatus, { label: string; color: string }> = {
+  POSTED: { label: '전기', color: 'bg-green-100 text-green-800' },
+  REVERSED: { label: '역분개', color: 'bg-red-100 text-red-800' },
+  ERROR: { label: '오류', color: 'bg-red-200 text-red-900' },
+};
+
 export const STEEL_GRADE_DENSITY: Record<string, number> = {
+  // 금형강 (철계)
   'NAK80': 7.85,
   'SKD11': 7.70,
   'SKD61': 7.76,
@@ -205,4 +250,17 @@ export const STEEL_GRADE_DENSITY: Record<string, number> = {
   'SCM440': 7.85,
   'P20': 7.85,
   'STAVAX': 7.80,
+  'HPM38': 7.81,
+  'DC53': 7.87,
+  // 알루미늄 합금
+  'AL6061': 2.71,
+  'AL7075': 2.81,
+  'AL5052': 2.68,
+  'AL2024': 2.78,
+  // 동합금
+  'C1100': 8.94,
+  'C2801': 8.50,
+  // 스테인리스
+  'SUS420J2': 7.75,
+  'SUS440C': 7.70,
 };

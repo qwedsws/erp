@@ -34,10 +34,18 @@ export class ReceivePurchaseOrderUseCase {
       return failure(new NotFoundError('PurchaseOrder', input.poId));
     }
 
+    const poItemById = new Map(po.items.map((item) => [item.id, item]));
+    const receivedQtyByItemId = new Map<string, number>();
+    for (const ri of input.items) {
+      if (ri.quantity <= 0) continue;
+      receivedQtyByItemId.set(ri.item_id, (receivedQtyByItemId.get(ri.item_id) ?? 0) + ri.quantity);
+    }
+    const receivedItemEntries = [...receivedQtyByItemId.entries()];
+
     const updatedItems: PurchaseOrderItem[] = po.items.map(item => {
-      const received = input.items.find(ri => ri.item_id === item.id);
-      if (!received || received.quantity <= 0) return item;
-      return { ...item, received_quantity: (item.received_quantity || 0) + received.quantity };
+      const receivedQty = receivedQtyByItemId.get(item.id) ?? 0;
+      if (receivedQty <= 0) return item;
+      return { ...item, received_quantity: (item.received_quantity || 0) + receivedQty };
     });
 
     const allReceived = updatedItems.every(item => (item.received_quantity || 0) >= item.quantity);
@@ -47,27 +55,41 @@ export class ReceivePurchaseOrderUseCase {
     const movements: StockMovement[] = [];
     const updatedStocks: Stock[] = [];
 
-    for (const ri of input.items) {
-      if (ri.quantity <= 0) continue;
-      const poItem = po.items.find(i => i.id === ri.item_id);
+    const uniqueMaterialIds = [
+      ...new Set(
+        receivedItemEntries
+          .map(([itemId]) => poItemById.get(itemId)?.material_id)
+          .filter((materialId): materialId is string => Boolean(materialId)),
+      ),
+    ];
+    const stockEntries = await Promise.all(
+      uniqueMaterialIds.map(async (materialId) => {
+        const stock = await this.stockRepo.findByMaterialId(materialId);
+        return [materialId, stock] as const;
+      }),
+    );
+    const stockByMaterialId = new Map(stockEntries);
+
+    for (const [itemId, receivedQty] of receivedItemEntries) {
+      const poItem = poItemById.get(itemId);
       if (!poItem) continue;
 
       const movement = await this.movementRepo.create({
         material_id: poItem.material_id,
         type: 'IN',
-        quantity: ri.quantity,
+        quantity: receivedQty,
         unit_price: poItem.unit_price,
         purchase_order_id: input.poId,
       });
       movements.push(movement);
 
-      const existingStock = await this.stockRepo.findByMaterialId(poItem.material_id);
+      const existingStock = stockByMaterialId.get(poItem.material_id) ?? null;
       let updatedStock: Stock;
 
       if (existingStock) {
-        const newQty = existingStock.quantity + ri.quantity;
+        const newQty = existingStock.quantity + receivedQty;
         const newAvg =
-          (existingStock.quantity * existingStock.avg_unit_price + ri.quantity * poItem.unit_price) / newQty;
+          (existingStock.quantity * existingStock.avg_unit_price + receivedQty * poItem.unit_price) / newQty;
         updatedStock = await this.stockRepo.upsert({
           ...existingStock,
           quantity: newQty,
@@ -78,40 +100,45 @@ export class ReceivePurchaseOrderUseCase {
         updatedStock = await this.stockRepo.upsert({
           id: generateId(),
           material_id: poItem.material_id,
-          quantity: ri.quantity,
+          quantity: receivedQty,
           avg_unit_price: poItem.unit_price,
           updated_at: now,
         });
       }
+      stockByMaterialId.set(poItem.material_id, updatedStock);
       updatedStocks.push(updatedStock);
     }
 
     const newPrices: MaterialPrice[] = [];
     const existingAllPrices = await this.priceRepo.findAll();
+    const latestPriceByMaterialSupplier = new Map<string, MaterialPrice>();
+    for (const price of existingAllPrices) {
+      const key = `${price.material_id}::${price.supplier_id}`;
+      const latest = latestPriceByMaterialSupplier.get(key);
+      if (!latest || price.effective_date > latest.effective_date) {
+        latestPriceByMaterialSupplier.set(key, price);
+      }
+    }
+    const processedMaterialIds = new Set<string>();
 
-    for (const ri of input.items) {
-      if (ri.quantity <= 0) continue;
-      const poItem = po.items.find(i => i.id === ri.item_id);
+    for (const [itemId] of receivedItemEntries) {
+      const poItem = poItemById.get(itemId);
       if (!poItem) continue;
+      if (processedMaterialIds.has(poItem.material_id)) continue;
+      processedMaterialIds.add(poItem.material_id);
 
-      const existingPrices = existingAllPrices
-        .filter(mp => mp.material_id === poItem.material_id && mp.supplier_id === po.supplier_id)
-        .sort((a, b) => b.effective_date.localeCompare(a.effective_date));
-
-      const latestPrice = existingPrices[0];
+      const latestPrice = latestPriceByMaterialSupplier.get(`${poItem.material_id}::${po.supplier_id}`);
 
       if (!latestPrice || latestPrice.unit_price !== poItem.unit_price) {
-        if (!newPrices.some(np => np.material_id === poItem.material_id && np.supplier_id === po.supplier_id)) {
-          const price = await this.priceRepo.create({
-            material_id: poItem.material_id,
-            supplier_id: po.supplier_id,
-            unit_price: poItem.unit_price,
-            prev_price: latestPrice?.unit_price,
-            effective_date: today,
-            notes: `입고 자동 등록 (${po.po_no})`,
-          });
-          newPrices.push(price);
-        }
+        const price = await this.priceRepo.create({
+          material_id: poItem.material_id,
+          supplier_id: po.supplier_id,
+          unit_price: poItem.unit_price,
+          prev_price: latestPrice?.unit_price,
+          effective_date: today,
+          notes: `입고 자동 등록 (${po.po_no})`,
+        });
+        newPrices.push(price);
       }
     }
 

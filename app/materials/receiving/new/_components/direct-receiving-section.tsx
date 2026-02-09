@@ -144,6 +144,8 @@ export function DirectReceivingSection({
             <SteelTagTable
               entries={directSteelTags}
               weightMethod={weightMethod}
+              showDimensions={true}
+              editableDimensions={true}
               onUpdate={(idx, field, val) => {
                 setDirectSteelTags(prev =>
                   prev.map((ent, i) => i === idx ? { ...ent, [field]: val } : ent)

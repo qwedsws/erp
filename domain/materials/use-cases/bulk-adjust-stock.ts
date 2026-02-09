@@ -16,9 +16,17 @@ export class BulkAdjustStockUseCase {
     const now = new Date().toISOString();
     const movements: StockMovement[] = [];
     const stocks: Stock[] = [];
+    const uniqueMaterialIds = [...new Set(input.adjustments.map((adj) => adj.material_id))];
+    const stockEntries = await Promise.all(
+      uniqueMaterialIds.map(async (materialId) => {
+        const stock = await this.stockRepo.findByMaterialId(materialId);
+        return [materialId, stock] as const;
+      }),
+    );
+    const stockByMaterialId = new Map(stockEntries);
 
     for (const adj of input.adjustments) {
-      const stock = await this.stockRepo.findByMaterialId(adj.material_id);
+      const stock = stockByMaterialId.get(adj.material_id) ?? null;
       const currentQty = stock?.quantity ?? 0;
       const diff = adj.actual_qty - currentQty;
 
@@ -38,6 +46,7 @@ export class BulkAdjustStockUseCase {
           quantity: adj.actual_qty,
           updated_at: now,
         });
+        stockByMaterialId.set(adj.material_id, updatedStock);
         stocks.push(updatedStock);
       } else {
         const newStock = await this.stockRepo.upsert({
@@ -47,6 +56,7 @@ export class BulkAdjustStockUseCase {
           avg_unit_price: 0,
           updated_at: now,
         });
+        stockByMaterialId.set(adj.material_id, newStock);
         stocks.push(newStock);
       }
     }

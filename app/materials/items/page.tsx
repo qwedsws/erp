@@ -65,8 +65,14 @@ export default function MaterialItemsPage() {
       key: 'specification',
       header: '규격/상세',
       cell: (item: Material) => {
-        if (item.category === 'STEEL' && item.dimension_w && item.dimension_l && item.dimension_h) {
-          return `${item.dimension_w}\u00D7${item.dimension_l}\u00D7${item.dimension_h}`;
+        if (item.category === 'STEEL') {
+          if (item.dimension_w && item.dimension_l && item.dimension_h) {
+            return `${item.dimension_w}\u00D7${item.dimension_l}\u00D7${item.dimension_h}`;
+          }
+          // No dimensions on material — show grade with note
+          return item.steel_grade
+            ? `${item.steel_grade} (다양한 치수)`
+            : '강재 (치수 미지정)';
         }
         if (item.category === 'TOOL' && item.tool_type) {
           return `\u03A6${item.tool_diameter} ${TOOL_TYPE_MAP[item.tool_type as ToolType]}`;

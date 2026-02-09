@@ -236,6 +236,11 @@ export interface SteelTag {
   received_at: string;
   issued_at?: string;
   notes?: string;
+  // v2: PO Item 참조 + 개별 태그 치수
+  po_item_id?: string;
+  dimension_w?: number;
+  dimension_l?: number;
+  dimension_h?: number;
   created_at: string;
   updated_at: string;
 }
@@ -268,6 +273,12 @@ export interface PurchaseOrderItem {
   quantity: number;
   unit_price: number;
   received_quantity?: number;
+  // v2: STEEL 치수 (발주 시 지정)
+  dimension_w?: number;
+  dimension_l?: number;
+  dimension_h?: number;
+  piece_weight?: number;
+  total_weight?: number;
 }
 
 export interface PurchaseOrder {
@@ -312,6 +323,11 @@ export interface PurchaseRequest {
   reject_reason?: string;
   po_id?: string;
   notes?: string;
+  // v2: STEEL 치수
+  dimension_w?: number;
+  dimension_l?: number;
+  dimension_h?: number;
+  piece_weight?: number;
   created_at: string;
   updated_at: string;
 }
@@ -381,4 +397,84 @@ export interface Payment {
   notes?: string;
   created_at: string;
   updated_at: string;
+}
+
+// === Accounting ===
+export type GLAccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+export type JournalEntryStatus = 'POSTED' | 'REVERSED';
+export type AROpenItemStatus = 'OPEN' | 'PARTIAL' | 'CLOSED';
+export type APOpenItemStatus = 'OPEN' | 'PARTIAL' | 'CLOSED';
+export type AccountingSourceType = 'ORDER' | 'PAYMENT' | 'PURCHASE_ORDER' | 'STOCK_MOVEMENT';
+export type AccountingEventType = 'ORDER_CONFIRMED' | 'PAYMENT_CONFIRMED' | 'PO_ORDERED' | 'STOCK_OUT';
+export type AccountingEventStatus = 'POSTED' | 'REVERSED' | 'ERROR';
+
+export interface GLAccount {
+  id: string;
+  code: string;
+  name: string;
+  type: GLAccountType;
+  is_active: boolean;
+}
+
+export interface JournalLine {
+  id: string;
+  journal_entry_id: string;
+  line_no: number;
+  account_id: string;
+  dr_amount: number;
+  cr_amount: number;
+  project_id?: string;
+  customer_id?: string;
+  supplier_id?: string;
+  material_id?: string;
+  memo?: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  journal_no: string;
+  posting_date: string;
+  source_type: AccountingSourceType;
+  source_id: string;
+  source_no: string;
+  description: string;
+  status: JournalEntryStatus;
+  lines: JournalLine[];
+  created_at: string;
+}
+
+export interface AROpenItem {
+  id: string;
+  order_id: string;
+  customer_id: string;
+  due_date: string;
+  original_amount: number;
+  balance_amount: number;
+  status: AROpenItemStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface APOpenItem {
+  id: string;
+  purchase_order_id: string;
+  supplier_id: string;
+  due_date: string;
+  original_amount: number;
+  balance_amount: number;
+  status: APOpenItemStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AccountingEvent {
+  id: string;
+  source_type: AccountingSourceType;
+  source_id: string;
+  event_type: AccountingEventType;
+  occurred_at: string;
+  payload: Record<string, unknown>;
+  status: AccountingEventStatus;
+  journal_entry_id?: string;
+  created_at: string;
 }

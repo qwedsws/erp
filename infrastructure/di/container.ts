@@ -15,6 +15,13 @@ import type {
 } from '@/domain/procurement/ports';
 import type { IInspectionRepository, ITryoutRepository, IDefectRepository } from '@/domain/quality/ports';
 import type { IProfileRepository } from '@/domain/admin/ports';
+import type {
+  IGLAccountRepository,
+  IJournalEntryRepository,
+  IAROpenItemRepository,
+  IAPOpenItemRepository,
+  IAccountingEventRepository,
+} from '@/domain/accounting/ports';
 
 // In-Memory implementations
 import { InMemoryCustomerRepository, InMemoryOrderRepository, InMemoryPaymentRepository } from '../repositories/in-memory/sales';
@@ -34,6 +41,13 @@ import {
 } from '../repositories/in-memory/procurement';
 import { InMemoryInspectionRepository, InMemoryTryoutRepository, InMemoryDefectRepository } from '../repositories/in-memory/quality';
 import { InMemoryProfileRepository } from '../repositories/in-memory/admin';
+import {
+  InMemoryGLAccountRepository,
+  InMemoryJournalEntryRepository,
+  InMemoryAROpenItemRepository,
+  InMemoryAPOpenItemRepository,
+  InMemoryAccountingEventRepository,
+} from '../repositories/in-memory/accounting';
 import {
   SupabaseMaterialRepository,
   SupabaseStockRepository,
@@ -86,6 +100,13 @@ let defectRepo: IDefectRepository | null = null;
 
 // Admin
 let profileRepo: IProfileRepository | null = null;
+
+// Accounting
+let glAccountRepo: IGLAccountRepository | null = null;
+let journalEntryRepo: IJournalEntryRepository | null = null;
+let arOpenItemRepo: IAROpenItemRepository | null = null;
+let apOpenItemRepo: IAPOpenItemRepository | null = null;
+let accountingEventRepo: IAccountingEventRepository | null = null;
 
 // --- Sales ---
 
@@ -228,6 +249,33 @@ export function getProfileRepository(): IProfileRepository {
   return profileRepo;
 }
 
+// --- Accounting ---
+
+export function getGLAccountRepository(): IGLAccountRepository {
+  if (!glAccountRepo) glAccountRepo = new InMemoryGLAccountRepository();
+  return glAccountRepo;
+}
+
+export function getJournalEntryRepository(): IJournalEntryRepository {
+  if (!journalEntryRepo) journalEntryRepo = new InMemoryJournalEntryRepository();
+  return journalEntryRepo;
+}
+
+export function getAROpenItemRepository(): IAROpenItemRepository {
+  if (!arOpenItemRepo) arOpenItemRepo = new InMemoryAROpenItemRepository();
+  return arOpenItemRepo;
+}
+
+export function getAPOpenItemRepository(): IAPOpenItemRepository {
+  if (!apOpenItemRepo) apOpenItemRepo = new InMemoryAPOpenItemRepository();
+  return apOpenItemRepo;
+}
+
+export function getAccountingEventRepository(): IAccountingEventRepository {
+  if (!accountingEventRepo) accountingEventRepo = new InMemoryAccountingEventRepository();
+  return accountingEventRepo;
+}
+
 // --- Reset (for testing) ---
 
 export function resetRepositories(): void {
@@ -250,4 +298,9 @@ export function resetRepositories(): void {
   tryoutRepo = null;
   defectRepo = null;
   profileRepo = null;
+  glAccountRepo = null;
+  journalEntryRepo = null;
+  arOpenItemRepo = null;
+  apOpenItemRepo = null;
+  accountingEventRepo = null;
 }

@@ -13,6 +13,16 @@ import type {
 
 const supabase = createClient()
 
+type PurchaseOrderRow = PurchaseOrder & { purchase_order_items?: PurchaseOrderItem[] | null }
+
+function mapPurchaseOrderRow(po: PurchaseOrderRow): PurchaseOrder {
+  return {
+    ...po,
+    items: (po.purchase_order_items || []) as PurchaseOrderItem[],
+    purchase_order_items: undefined,
+  } as PurchaseOrder
+}
+
 // ============ FETCH (SELECT) ============
 
 export async function fetchSuppliers(): Promise<Supplier[]> {
@@ -21,16 +31,46 @@ export async function fetchSuppliers(): Promise<Supplier[]> {
   return data as Supplier[]
 }
 
+export async function fetchSupplierById(id: string): Promise<Supplier | null> {
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return (data as Supplier | null) ?? null
+}
+
 export async function fetchMaterials(): Promise<Material[]> {
   const { data, error } = await supabase.from('materials').select('*').order('material_code')
   if (error) throw error
   return data as Material[]
 }
 
+export async function fetchMaterialById(id: string): Promise<Material | null> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return (data as Material | null) ?? null
+}
+
 export async function fetchStocks(): Promise<Stock[]> {
   const { data, error } = await supabase.from('stocks').select('*')
   if (error) throw error
   return data as Stock[]
+}
+
+export async function fetchStockByMaterialId(materialId: string): Promise<Stock | null> {
+  const { data, error } = await supabase
+    .from('stocks')
+    .select('*')
+    .eq('material_id', materialId)
+    .maybeSingle()
+  if (error) throw error
+  return (data as Stock | null) ?? null
 }
 
 export async function fetchStockMovements(): Promise<StockMovement[]> {
@@ -45,11 +85,18 @@ export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
     .select('*, purchase_order_items(*)')
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data || []).map(po => ({
-    ...po,
-    items: (po.purchase_order_items || []) as PurchaseOrderItem[],
-    purchase_order_items: undefined,
-  })) as PurchaseOrder[]
+  return ((data || []) as PurchaseOrderRow[]).map(mapPurchaseOrderRow)
+}
+
+export async function fetchPurchaseOrderById(id: string): Promise<PurchaseOrder | null> {
+  const { data, error } = await supabase
+    .from('purchase_orders')
+    .select('*, purchase_order_items(*)')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  return mapPurchaseOrderRow(data as PurchaseOrderRow)
 }
 
 export async function fetchPurchaseRequests(): Promise<PurchaseRequest[]> {
@@ -58,8 +105,28 @@ export async function fetchPurchaseRequests(): Promise<PurchaseRequest[]> {
   return data as PurchaseRequest[]
 }
 
+export async function fetchPurchaseRequestById(id: string): Promise<PurchaseRequest | null> {
+  const { data, error } = await supabase
+    .from('purchase_requests')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return (data as PurchaseRequest | null) ?? null
+}
+
 export async function fetchMaterialPrices(): Promise<MaterialPrice[]> {
   const { data, error } = await supabase.from('material_prices').select('*').order('effective_date', { ascending: false })
+  if (error) throw error
+  return data as MaterialPrice[]
+}
+
+export async function fetchMaterialPricesByMaterial(materialId: string): Promise<MaterialPrice[]> {
+  const { data, error } = await supabase
+    .from('material_prices')
+    .select('*')
+    .eq('material_id', materialId)
+    .order('effective_date', { ascending: false })
   if (error) throw error
   return data as MaterialPrice[]
 }
@@ -157,6 +224,16 @@ export async function fetchSteelTags(): Promise<SteelTag[]> {
   const { data, error } = await supabase.from('steel_tags').select('*').order('created_at', { ascending: false })
   if (error) throw error
   return data as SteelTag[]
+}
+
+export async function fetchSteelTagById(id: string): Promise<SteelTag | null> {
+  const { data, error } = await supabase
+    .from('steel_tags')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return (data as SteelTag | null) ?? null
 }
 
 export async function insertSteelTag(tag: SteelTag) {

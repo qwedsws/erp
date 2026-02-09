@@ -241,17 +241,27 @@ export function MaterialInfoSection({
                 </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">치수</dt>
+                <dt className="text-muted-foreground">기본 치수</dt>
                 <dd className="font-medium mt-0.5">
                   {material.dimension_w && material.dimension_l && material.dimension_h
-                    ? `${material.dimension_w}×${material.dimension_l}×${material.dimension_h} mm`
-                    : '-'}
+                    ? `${material.dimension_w}\u00D7${material.dimension_l}\u00D7${material.dimension_h} mm`
+                    : (
+                      <span className="text-muted-foreground text-xs">
+                        치수 미지정 — 태그별 개별 치수
+                      </span>
+                    )}
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">이론 중량</dt>
                 <dd className="font-medium mt-0.5">
-                  {material.weight ? `${material.weight.toFixed(2)} kg/EA` : '-'}
+                  {material.weight
+                    ? `${material.weight.toFixed(2)} kg/EA`
+                    : (
+                      <span className="text-muted-foreground text-xs">
+                        치수 미지정
+                      </span>
+                    )}
                 </dd>
               </div>
               <div>

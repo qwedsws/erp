@@ -40,10 +40,10 @@ Presentation (app/, components/)
 ### Domain Layer (`domain/`)
 
 7 domains: `materials`, `procurement`, `sales`, `projects`, `production`, `quality`, `admin`. Each has:
-- `entities.ts` — re-exports from `domain/shared/entities.ts` (all 47 entity types)
-- `ports.ts` — repository interfaces (18 total)
-- `services.ts` — pure business rules
-- `use-cases/` — workflow orchestration (12 implemented, mostly in materials/procurement)
+- `entities.ts` — re-exports from `domain/shared/entities.ts` (43 types: 22 type aliases + 21 interfaces)
+- `ports.ts` — repository interfaces (18 total across all domains)
+- `services.ts` — pure business rules (e.g., `resolveApproverId`)
+- `use-cases/` — workflow orchestration (11 implemented: 6 materials, 2 procurement, 2 sales, 1 projects)
 
 Shared: `domain/shared/types.ts` exports `Result<T>`, `success()`, `failure()`, `generateId()`, `generateDocumentNo()`. `domain/shared/errors.ts` exports domain error classes.
 
@@ -61,7 +61,7 @@ Shared: `domain/shared/types.ts` exports `Result<T>`, `success()`, `failure()`, 
 
 ### Hooks Layer (`hooks/`)
 
-23 domain hooks organized by domain (e.g., `hooks/sales/useCustomers.ts`). Standard pattern:
+40 hook files organized by domain across 9 directories (e.g., `hooks/sales/useCustomers.ts`). Includes base CRUD hooks, view model hooks, form hooks, and shared utilities. Standard pattern:
 1. Read cached state from store via `useERPStore((s) => s.entities)`
 2. Get repository from DI container (`getXRepository()`)
 3. Provide async actions that call repo then update cache
@@ -71,7 +71,7 @@ Shared: `domain/shared/types.ts` exports `Result<T>`, `success()`, `failure()`, 
 
 - `components/ui/` — 20 shadcn/ui Base UI components
 - `components/layout/` — AppLayout, Header, Sidebar
-- `components/common/` — StatusBadge, DataTable, PageHeader, ConfirmDialog, PromptDialog
+- `components/common/` — StatusBadge, DataTable, PageHeader, ConfirmDialog, PromptDialog, FeedbackToastProvider
 - `app/` — 47 routes across 8 sections (dashboard, sales, projects, design, production, materials, quality, admin)
 
 ### Key Patterns

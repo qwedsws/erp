@@ -6,6 +6,7 @@ import { createProjectsSlice, type ProjectsSlice } from './projects-slice';
 import { createProductionSlice, type ProductionSlice } from './production-slice';
 import { createQualitySlice, type QualitySlice } from './quality-slice';
 import { createAdminSlice, type AdminSlice } from './admin-slice';
+import { createAccountingSlice, type AccountingSlice } from './accounting-slice';
 
 export type ERPStore =
   MaterialsSlice &
@@ -14,7 +15,8 @@ export type ERPStore =
   ProjectsSlice &
   ProductionSlice &
   QualitySlice &
-  AdminSlice;
+  AdminSlice &
+  AccountingSlice;
 
 export const useERPStore = create<ERPStore>()((...a) => ({
   ...createMaterialsSlice(...a),
@@ -24,4 +26,5 @@ export const useERPStore = create<ERPStore>()((...a) => ({
   ...createProductionSlice(...a),
   ...createQualitySlice(...a),
   ...createAdminSlice(...a),
+  ...createAccountingSlice(...a),
 }));

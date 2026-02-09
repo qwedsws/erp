@@ -164,6 +164,20 @@
 
 ---
 
+## 4.5 관련 계획 문서: STEEL 치수 분리 및 태그 확장
+
+> **참조**: [plan_v2.md](./plan_v2.md) — 금속 원자재 치수 분리 및 태그 확장 계획
+>
+> Phase B/C의 발주·입고·재고 워크플로우는 plan_v2.md의 데이터 모델 변경을 **선행 조건**으로 한다:
+> - **PurchaseOrderItem에 치수(W/L/H) 추가** → Phase C 발주 등록 UI에 반영
+> - **PurchaseRequest에 치수 추가** → Phase C 구매 요청 등록 UI에 반영
+> - **SteelTag에 치수 + po_item_id 추가** → Phase B 입고 시 태그 치수 자동 상속
+> - **STEEL_GRADE_DENSITY 확장** (AL6061 등 알루미늄 합금 추가) → Phase A 자재 등록에 반영
+>
+> plan_v2.md의 Phase 1(엔티티+인프라)을 먼저 적용한 후 본 문서의 Phase B/C를 진행하는 것을 권장.
+
+---
+
 ## 5. Phase C — 구매 워크플로우
 
 ### C-1. 구매 요청 등록/관리

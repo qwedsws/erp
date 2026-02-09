@@ -12,8 +12,7 @@ export class SupabaseSupplierRepository implements ISupplierRepository {
   }
 
   async findById(id: string): Promise<Supplier | null> {
-    const all = await this.findAll();
-    return all.find(s => s.id === id) ?? null;
+    return sb.fetchSupplierById(id);
   }
 
   async create(input: Omit<Supplier, 'id' | 'created_at' | 'updated_at'>): Promise<Supplier> {
@@ -41,8 +40,7 @@ export class SupabasePurchaseOrderRepository implements IPurchaseOrderRepository
   }
 
   async findById(id: string): Promise<PurchaseOrder | null> {
-    const all = await this.findAll();
-    return all.find(po => po.id === id) ?? null;
+    return sb.fetchPurchaseOrderById(id);
   }
 
   async create(input: Omit<PurchaseOrder, 'id' | 'po_no' | 'created_at' | 'updated_at'>): Promise<PurchaseOrder> {
@@ -71,8 +69,7 @@ export class SupabasePurchaseRequestRepository implements IPurchaseRequestReposi
   }
 
   async findById(id: string): Promise<PurchaseRequest | null> {
-    const all = await this.findAll();
-    return all.find(pr => pr.id === id) ?? null;
+    return sb.fetchPurchaseRequestById(id);
   }
 
   async create(input: Omit<PurchaseRequest, 'id' | 'pr_no' | 'created_at' | 'updated_at'>): Promise<PurchaseRequest> {

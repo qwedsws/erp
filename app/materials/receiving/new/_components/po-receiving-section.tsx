@@ -80,51 +80,75 @@ export function POReceivingSection({
       {selectedPOId && receiveItems.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-6 space-y-4 mb-6">
           <h3 className="text-sm font-semibold">입고 품목</h3>
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/50 border-b border-border">
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재코드</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재명</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">발주수량</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">기입고량</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">잔량</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-36">입고수량</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">단가</th>
-                </tr>
-              </thead>
-              <tbody>
-                {receiveItems.map(item => {
-                  const mat = materialById.get(item.material_id);
-                  const remaining = item.quantity - item.received_quantity;
-                  return (
-                    <tr key={item.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-xs">{mat?.material_code || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3 font-medium">{mat?.name || '-'}</td>
-                      <td className="px-4 py-3 text-right">{item.quantity.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right">{item.received_quantity.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right font-medium">{remaining.toLocaleString()}</td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          value={item.receiveQty}
-                          onChange={(e) => updateReceiveQty(item.id, Number(e.target.value))}
-                          min={0}
-                          max={remaining}
-                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {item.unit_price.toLocaleString()}원
-                      </td>
+          {(() => {
+            // Check if any PO items have dimensions to show the dimension column
+            const po = purchaseOrderById.get(selectedPOId);
+            const poItemById = new Map((po?.items || []).map(pi => [pi.id, pi]));
+            const hasDimensionItems = receiveItems.some(item => {
+              const poItem = poItemById.get(item.id);
+              return poItem?.dimension_w != null || poItem?.dimension_l != null || poItem?.dimension_h != null;
+            });
+
+            return (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50 border-b border-border">
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재코드</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재명</th>
+                      {hasDimensionItems && (
+                        <th className="px-4 py-3 text-center font-medium text-muted-foreground">치수(mm)</th>
+                      )}
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">발주수량</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">기입고량</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">잔량</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground w-36">입고수량</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">단가</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {receiveItems.map(item => {
+                      const mat = materialById.get(item.material_id);
+                      const poItem = poItemById.get(item.id);
+                      const remaining = item.quantity - item.received_quantity;
+                      const dimStr = (poItem?.dimension_w != null || poItem?.dimension_l != null || poItem?.dimension_h != null)
+                        ? `${poItem?.dimension_w ?? '-'}×${poItem?.dimension_l ?? '-'}×${poItem?.dimension_h ?? '-'}`
+                        : null;
+                      return (
+                        <tr key={item.id} className="border-b border-border last:border-0">
+                          <td className="px-4 py-3">
+                            <span className="font-mono text-xs">{mat?.material_code || '-'}</span>
+                          </td>
+                          <td className="px-4 py-3 font-medium">{mat?.name || '-'}</td>
+                          {hasDimensionItems && (
+                            <td className="px-4 py-3 text-center font-mono text-xs text-muted-foreground">
+                              {dimStr || '-'}
+                            </td>
+                          )}
+                          <td className="px-4 py-3 text-right">{item.quantity.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right">{item.received_quantity.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right font-medium">{remaining.toLocaleString()}</td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              value={item.receiveQty}
+                              onChange={(e) => updateReceiveQty(item.id, Number(e.target.value))}
+                              min={0}
+                              max={remaining}
+                              className="w-full h-8 px-2 rounded border border-input bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {item.unit_price.toLocaleString()}원
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
 
           {/* [Issue 3 fix] STEEL 태그 섹션 — 모든 STEEL 항목 렌더링 */}
           {(() => {
@@ -162,6 +186,8 @@ export function POReceivingSection({
                       <SteelTagTable
                         entries={entries}
                         weightMethod={weightMethod}
+                        showDimensions={entries.some(e => e.dimension_w != null || e.dimension_l != null || e.dimension_h != null)}
+                        editableDimensions={false}
                         onUpdate={(idx, field, val) => {
                           const itemId = steelItem.id;
                           setSteelTagEntries(prev => ({

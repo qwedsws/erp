@@ -13,6 +13,7 @@ import {
   Package,
   ClipboardCheck,
   Settings,
+  Calculator,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -48,6 +49,12 @@ const navigation = [
     { name: '검사 관리', href: '/quality/inspections' },
     { name: '트라이아웃', href: '/quality/tryouts' },
     { name: '불량/클레임', href: '/quality/claims' },
+  ]},
+  { name: '회계', href: '/accounting', icon: Calculator, children: [
+    { name: '회계 대시보드', href: '/accounting' },
+    { name: '분개 장부', href: '/accounting/journals' },
+    { name: '매출채권', href: '/accounting/receivables' },
+    { name: '매입채무', href: '/accounting/payables' },
   ]},
   { name: '시스템 관리', href: '/admin', icon: Settings, children: [
     { name: '사용자 관리', href: '/admin/users' },

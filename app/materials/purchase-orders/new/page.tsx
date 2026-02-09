@@ -4,7 +4,6 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/common/page-header';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
-import { calcTotalWeight, calcSteelOrderAmount } from '@/lib/utils';
 import { usePurchaseOrderForm } from '@/hooks/procurement/usePurchaseOrderForm';
 
 export default function NewPurchaseOrderPage() {
@@ -21,6 +20,7 @@ export default function NewPurchaseOrderPage() {
     removeItem,
     updateItem,
     handleSubmit,
+    calcSteelItem,
   } = usePurchaseOrderForm();
 
   return (
@@ -33,7 +33,7 @@ export default function NewPurchaseOrderPage() {
       </div>
       <PageHeader title="발주 등록" description="새로운 구매 발주를 등록합니다" />
 
-      <form onSubmit={handleSubmit} className="max-w-4xl">
+      <form onSubmit={handleSubmit} className="max-w-5xl">
         {/* Basic Info */}
         <div className="rounded-lg border border-border bg-card p-6 space-y-4 mb-6">
           <h3 className="text-sm font-semibold">기본 정보</h3>
@@ -103,10 +103,10 @@ export default function NewPurchaseOrderPage() {
                 <tr className="bg-muted/50 border-b border-border">
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground w-12">#</th>
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-32">수량</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-40">단가 (원)</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-40">소계</th>
-                  <th className="px-4 py-3 text-center font-medium text-muted-foreground w-16"></th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-24">수량</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-32">단가 (원)</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-36">소계</th>
+                  <th className="px-4 py-3 text-center font-medium text-muted-foreground w-12"></th>
                 </tr>
               </thead>
               <tbody>
@@ -114,11 +114,9 @@ export default function NewPurchaseOrderPage() {
                   const qty = Number(item.quantity) || 0;
                   const price = Number(item.unit_price) || 0;
                   const selectedMaterial = item.material_id ? materialById.get(item.material_id) : null;
-                  const isSteel = selectedMaterial?.category === 'STEEL';
-                  const totalWeightKg = isSteel ? calcTotalWeight(qty, selectedMaterial?.weight || 0) : 0;
-                  const subtotal = isSteel && selectedMaterial?.weight && selectedMaterial?.price_per_kg
-                    ? calcSteelOrderAmount(totalWeightKg, selectedMaterial.price_per_kg)
-                    : qty * price;
+                  const calc = calcSteelItem(item);
+                  const subtotal = calc.isSteel ? calc.subtotal : qty * price;
+
                   return (
                     <tr key={index} className="border-b border-border last:border-0">
                       <td className="px-4 py-3 text-muted-foreground align-top">{index + 1}</td>
@@ -138,19 +136,77 @@ export default function NewPurchaseOrderPage() {
                         {selectedMaterial?.specification && (
                           <p className="text-xs text-muted-foreground mt-0.5">{selectedMaterial.specification}</p>
                         )}
-                        {isSteel && selectedMaterial?.weight && selectedMaterial?.price_per_kg && (
+                        {calc.isSteel && (
                           <div className="mt-1.5 p-2 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs space-y-0.5">
                             <p className="text-blue-700 dark:text-blue-300">
-                              이론 중량: {selectedMaterial.weight.toFixed(2)} kg/EA
+                              밀도: {calc.density} g/cm3 | kg당 단가: {calc.pricePerKg.toLocaleString()} 원/kg
                             </p>
-                            <p className="text-blue-700 dark:text-blue-300">
-                              kg당 단가: {selectedMaterial.price_per_kg.toLocaleString()} 원/kg
-                            </p>
+                          </div>
+                        )}
+
+                        {/* STEEL Dimension Inputs */}
+                        {calc.isSteel && (
+                          <div className="mt-2 space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground">치수 (mm)</p>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1">
+                                <label className="block text-[10px] text-muted-foreground mb-0.5">가로(W)</label>
+                                <input
+                                  type="number"
+                                  value={item.dimension_w}
+                                  onChange={(e) => updateItem(index, 'dimension_w', e.target.value)}
+                                  placeholder="0"
+                                  min="0"
+                                  className="w-full h-7 px-2 rounded border border-input bg-background text-xs text-right focus:outline-none focus:ring-2 focus:ring-ring"
+                                />
+                              </div>
+                              <span className="text-muted-foreground mt-3.5">x</span>
+                              <div className="flex-1">
+                                <label className="block text-[10px] text-muted-foreground mb-0.5">세로(L)</label>
+                                <input
+                                  type="number"
+                                  value={item.dimension_l}
+                                  onChange={(e) => updateItem(index, 'dimension_l', e.target.value)}
+                                  placeholder="0"
+                                  min="0"
+                                  className="w-full h-7 px-2 rounded border border-input bg-background text-xs text-right focus:outline-none focus:ring-2 focus:ring-ring"
+                                />
+                              </div>
+                              <span className="text-muted-foreground mt-3.5">x</span>
+                              <div className="flex-1">
+                                <label className="block text-[10px] text-muted-foreground mb-0.5">높이(H)</label>
+                                <input
+                                  type="number"
+                                  value={item.dimension_h}
+                                  onChange={(e) => updateItem(index, 'dimension_h', e.target.value)}
+                                  placeholder="0"
+                                  min="0"
+                                  className="w-full h-7 px-2 rounded border border-input bg-background text-xs text-right focus:outline-none focus:ring-2 focus:ring-ring"
+                                />
+                              </div>
+                            </div>
+                            {calc.pieceWeight > 0 && (
+                              <div className="p-2 rounded bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs space-y-0.5">
+                                <p className="text-emerald-700 dark:text-emerald-300">
+                                  건당 중량: {calc.pieceWeight.toFixed(3)} kg
+                                </p>
+                                {qty > 0 && (
+                                  <>
+                                    <p className="text-emerald-700 dark:text-emerald-300">
+                                      총 중량: {calc.totalWeight.toFixed(2)} kg
+                                    </p>
+                                    <p className="text-emerald-700 dark:text-emerald-300">
+                                      EA당 단가: {calc.unitPrice.toLocaleString()} 원
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>
                       <td className="px-4 py-3 align-top">
-                        {isSteel && (
+                        {calc.isSteel && (
                           <p className="text-xs text-muted-foreground mb-1">수량 (EA)</p>
                         )}
                         <input
@@ -161,29 +217,30 @@ export default function NewPurchaseOrderPage() {
                           min="1"
                           className="w-full h-8 px-2 rounded border border-input bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
                         />
-                        {isSteel && qty > 0 && selectedMaterial?.weight && selectedMaterial?.price_per_kg && (
-                          <div className="mt-1.5 text-xs space-y-0.5">
-                            <p className="text-muted-foreground">
-                              총 중량: {totalWeightKg.toFixed(2)} kg
-                            </p>
-                            <p className="text-muted-foreground">
-                              발주 금액: {calcSteelOrderAmount(totalWeightKg, selectedMaterial.price_per_kg).toLocaleString()} 원
-                            </p>
-                          </div>
-                        )}
                       </td>
                       <td className="px-4 py-3 align-top">
-                        {isSteel && (
-                          <p className="text-xs text-muted-foreground mb-1">kg당 단가</p>
+                        {calc.isSteel ? (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">kg당 단가</p>
+                            <input
+                              type="number"
+                              value={item.unit_price}
+                              onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
+                              placeholder="0"
+                              min="0"
+                              className="w-full h-8 px-2 rounded border border-input bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                          </div>
+                        ) : (
+                          <input
+                            type="number"
+                            value={item.unit_price}
+                            onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
+                            placeholder="0"
+                            min="0"
+                            className="w-full h-8 px-2 rounded border border-input bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
+                          />
                         )}
-                        <input
-                          type="number"
-                          value={item.unit_price}
-                          onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
-                          placeholder="0"
-                          min="0"
-                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
                       </td>
                       <td className="px-4 py-3 text-right font-medium align-top">
                         {subtotal > 0 ? `${subtotal.toLocaleString()}원` : '-'}
