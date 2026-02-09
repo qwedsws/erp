@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <meta>
+    <title>자재 구매 관리 구현 계획</title>
+    <version>1.0</version>
+    <created>2026-02-09</created>
+    <source>docs/material_procurement/m_p_plan.md</source>
+    <status>completed</status>
+  </meta>
+
+  <inventory>
+    <existing-files>
+      <file path="lib/store.ts" role="state-management">Zustand store - updateMaterial, updatePurchaseOrder 이미 존재</file>
+      <file path="types/index.ts" role="type-definitions">Material, PurchaseOrder 등 타입 정의</file>
+      <file path="components/layout/sidebar.tsx" role="navigation">사이드바 메뉴</file>
+      <file path="app/materials/items/[id]/page.tsx" role="material-detail">자재 상세 - 편집/삭제 UI 추가 필요</file>
+      <file path="app/materials/purchase-orders/[id]/page.tsx" role="po-detail">발주 상세 - 상태변경/수정 보완 필요</file>
+      <file path="app/materials/inventory/page.tsx" role="inventory-list">재고 현황 - 출고/조정 버튼 추가 필요</file>
+    </existing-files>
+    <new-files>
+      <file path="app/materials/inventory/stock-out/page.tsx" phase="B">자재 출고 페이지</file>
+      <file path="app/materials/inventory/adjust/page.tsx" phase="B">재고 조정 페이지</file>
+      <file path="app/materials/inventory/stocktake/page.tsx" phase="B">재고 실사 페이지</file>
+      <file path="app/materials/purchase-requests/page.tsx" phase="C">구매 요청 목록</file>
+      <file path="app/materials/purchase-requests/new/page.tsx" phase="C">구매 요청 등록</file>
+      <file path="app/materials/statistics/page.tsx" phase="D">자재/구매 통계</file>
+    </new-files>
+  </inventory>
+
+  <phases>
+    <!-- ============ PHASE A: 핵심 CRUD 완성 ============ -->
+    <phase id="A" name="핵심 CRUD 완성" status="completed">
+      <task id="A-1" name="자재 수정/삭제 인라인 편집" status="pending" priority="high">
+        <description>자재 상세 페이지에 인라인 편집 모드 추가 (거래처 상세 패턴 재사용)</description>
+        <files>
+          <modify path="app/materials/items/[id]/page.tsx">편집/삭제 버튼, 인라인 편집 폼, handleSave/handleDelete 함수</modify>
+        </files>
+        <acceptance>
+          <criterion>자재 상세에서 편집 버튼 클릭 시 인라인 편집 모드 전환</criterion>
+          <criterion>저장 시 updateMaterial 호출하여 store 업데이트</criterion>
+          <criterion>삭제 시 confirm 후 deleteMaterial 호출, 목록으로 이동</criterion>
+        </acceptance>
+      </task>
+
+      <task id="A-2" name="발주 상세 페이지 보완" status="pending" priority="high">
+        <description>발주 상세에 상태변경 버튼, 수정 기능, 입고이력 섹션 추가</description>
+        <files>
+          <modify path="app/materials/purchase-orders/[id]/page.tsx">DRAFT→ORDERED 상태변경, DRAFT시 수정, 입고처리 링크</modify>
+        </files>
+        <acceptance>
+          <criterion>DRAFT 상태에서 ORDERED로 변경 가능</criterion>
+          <criterion>ORDERED 상태에서 CANCELLED로 변경 가능</criterion>
+          <criterion>DRAFT 상태에서 기본정보 수정 가능</criterion>
+          <criterion>입고 처리 버튼 클릭 시 /materials/receiving/new?po={id}로 이동</criterion>
+        </acceptance>
+      </task>
+
+      <task id="A-build" name="Phase A 빌드 검증" status="pending" depends="A-1,A-2">
+        <description>npx next build 성공 확인</description>
+      </task>
+    </phase>
+
+    <!-- ============ PHASE B: 재고 트랜잭션 ============ -->
+    <phase id="B" name="재고 트랜잭션" status="completed" depends="A">
+      <task id="B-0" name="Store 액션 추가 (stockOut, adjustStock, bulkAdjustStock)" status="completed" priority="high">
+        <description>재고 출고/조정/일괄조정 Zustand 액션 추가</description>
+        <files>
+          <modify path="lib/store.ts">stockOut, adjustStock, bulkAdjustStock 인터페이스+구현 추가</modify>
+        </files>
+        <acceptance>
+          <criterion>stockOut: 재고 차감 + StockMovement(OUT) 생성, project_id 연결</criterion>
+          <criterion>adjustStock: 재고 증감 + StockMovement(ADJUST) 생성</criterion>
+          <criterion>bulkAdjustStock: 다건 일괄 조정</criterion>
+        </acceptance>
+      </task>
+
+      <task id="B-1" name="자재 출고 페이지" status="completed" depends="B-0" priority="high">
+        <description>프로젝트별 자재 출고 페이지 신규 생성</description>
+        <files>
+          <create path="app/materials/inventory/stock-out/page.tsx">프로젝트 선택→자재 선택→출고수량→처리</create>
+        </files>
+        <acceptance>
+          <criterion>프로젝트/자재 선택, 출고수량 입력, 재고초과 방지 검증</criterion>
+          <criterion>출고 시 stockOut 호출</criterion>
+        </acceptance>
+      </task>
+
+      <task id="B-2" name="재고 조정 페이지" status="completed" depends="B-0" priority="medium">
+        <description>재고 조정(+/-) 페이지 신규 생성</description>
+        <files>
+          <create path="app/materials/inventory/adjust/page.tsx">자재 선택→조정수량→사유→처리</create>
+        </files>
+      </task>
+
+      <task id="B-3" name="재고 현황 페이지 개선" status="completed" depends="B-1,B-2" priority="medium">
+        <description>재고 현황에 출고/조정 버튼, 자재 클릭 링크 추가</description>
+        <files>
+          <modify path="app/materials/inventory/page.tsx">헤더에 출고/조정 버튼, 행 클릭 시 상세 이동</modify>
+        </files>
+      </task>
+
+      <task id="B-4" name="재고 실사 페이지" status="completed" depends="B-0" priority="medium">
+        <description>전체 자재 실사 수량 입력 및 일괄 조정</description>
+        <files>
+          <create path="app/materials/inventory/stocktake/page.tsx">자재 목록+시스템재고+실사수량+차이+일괄조정</create>
+        </files>
+      </task>
+
+      <task id="B-build" name="Phase B 빌드 검증" status="completed" depends="B-1,B-2,B-3,B-4">
+        <description>npx next build 성공 확인</description>
+      </task>
+    </phase>
+
+    <!-- ============ PHASE C: 구매 워크플로우 ============ -->
+    <phase id="C" name="구매 워크플로우" status="completed" depends="B">
+      <task id="C-0" name="구매 요청 타입/Store 추가" status="completed" priority="high">
+        <description>PurchaseRequest 타입, 상태맵, mock 데이터, store 액션 추가</description>
+        <files>
+          <modify path="types/index.ts">PurchaseRequestStatus, PurchaseRequest, PR_STATUS_MAP 추가</modify>
+          <modify path="lib/mock-data.ts">mockPurchaseRequests 추가</modify>
+          <modify path="lib/store.ts">purchaseRequests 데이터 + addPurchaseRequest/approvePurchaseRequest/rejectPurchaseRequest/convertRequestsToPO 액션</modify>
+        </files>
+      </task>
+
+      <task id="C-1" name="구매 요청 목록 페이지" status="completed" depends="C-0" priority="high">
+        <description>구매 요청 목록 (KPI + 상태필터 + DataTable + 승인/반려 액션 + 일괄발주전환)</description>
+        <files>
+          <create path="app/materials/purchase-requests/page.tsx">목록+KPI+필터+액션</create>
+        </files>
+      </task>
+
+      <task id="C-2" name="구매 요청 등록 페이지" status="completed" depends="C-0" priority="high">
+        <description>구매 요청 등록 폼</description>
+        <files>
+          <create path="app/materials/purchase-requests/new/page.tsx">자재선택+수량+필요일+사유 폼</create>
+        </files>
+      </task>
+
+      <task id="C-3" name="사이드바 메뉴 추가 (구매요청)" status="completed" depends="C-1" priority="low">
+        <description>사이드바에 구매 요청 메뉴 추가</description>
+        <files>
+          <modify path="components/layout/sidebar.tsx">자재/구매 children에 구매요청 추가</modify>
+        </files>
+      </task>
+
+      <task id="C-build" name="Phase C 빌드 검증" status="completed" depends="C-1,C-2,C-3">
+        <description>npx next build 성공 확인</description>
+      </task>
+    </phase>
+
+    <!-- ============ PHASE D: 자재/구매 통계 ============ -->
+    <phase id="D" name="자재/구매 통계" status="completed" depends="C">
+      <task id="D-1" name="자재/구매 통계 페이지" status="completed" priority="medium">
+        <description>KPI 4종 + 차트 4종(소비추이, 구매추이, 회전율, 납기준수율) + 장기체류 경고 테이블</description>
+        <files>
+          <create path="app/materials/statistics/page.tsx">통계 전체 페이지</create>
+          <modify path="components/layout/sidebar.tsx">자재/구매 children에 자재 통계 추가</modify>
+        </files>
+      </task>
+
+      <task id="D-build" name="Phase D 빌드 검증" status="completed" depends="D-1">
+        <description>npx next build 성공 확인</description>
+      </task>
+    </phase>
+
+    <!-- ============ PHASE E: 고도화 (실행 가능 항목만) ============ -->
+    <phase id="E" name="고도화" status="completed" depends="D">
+      <task id="E-2" name="안전 재고 알림" status="completed" priority="medium">
+        <description>재고 현황 상단 경고 배너 + 대시보드 KPI 카드 추가</description>
+        <files>
+          <modify path="app/materials/inventory/page.tsx">안전재고 미달 경고 배너 추가</modify>
+          <modify path="app/page.tsx">대시보드에 안전재고 미달 KPI 카드 추가</modify>
+        </files>
+      </task>
+
+      <task id="E-build" name="Phase E 빌드 검증" status="completed" depends="E-2">
+        <description>npx next build 성공 확인</description>
+      </task>
+    </phase>
+  </phases>
+
+  <excluded>
+    <item id="C-3-bom" reason="BOM 모듈 미구현">BOM 기반 구매 요청 자동 생성</item>
+    <item id="C-4" reason="외부 라이브러리 필요">발주서 PDF 출력 (react-pdf)</item>
+    <item id="E-1" reason="DB 스키마 변경 필요, Supabase 미연결">자재 분류 체계 (대/중/소분류)</item>
+    <item id="E-3" reason="별도 타입/테이블 필요, 복잡도 높음">잔재 관리</item>
+    <item id="E-4" reason="품질 모듈 의존">입고 검사 연동</item>
+  </excluded>
+
+  <changeLog>
+    <entry date="2026-02-09" action="created">초기 계획 수립 (Phase A~E)</entry>
+    <entry date="2026-02-09" action="completed">Phase A~E 전체 구현 완료, 빌드 검증 통과</entry>
+  </changeLog>
+</plan>
