@@ -41,6 +41,15 @@ export function usePurchaseRequests() {
       return pr;
     });
 
+  const addPurchaseRequests = (data: Parameters<typeof purchaseRequestRepo.create>[0][]) =>
+    run(async () => {
+      const created = await purchaseRequestRepo.createMany(data);
+      for (const pr of created) {
+        addToCache(pr);
+      }
+      return created;
+    });
+
   const updatePurchaseRequest = (id: string, data: Parameters<typeof purchaseRequestRepo.update>[1]) =>
     run(async () => {
       const updated = await purchaseRequestRepo.update(id, data);
@@ -84,7 +93,7 @@ export function usePurchaseRequests() {
 
   return {
     purchaseRequests,
-    addPurchaseRequest, updatePurchaseRequest,
+    addPurchaseRequest, addPurchaseRequests, updatePurchaseRequest,
     approvePurchaseRequest, rejectPurchaseRequest,
     convertRequestsToPO,
     isLoading, error,

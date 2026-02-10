@@ -28,6 +28,12 @@ export class InMemoryMaterialRepository implements IMaterialRepository {
     return this.data.find(m => m.id === id) ?? null;
   }
 
+  async findByIds(ids: string[]): Promise<Material[]> {
+    if (ids.length === 0) return [];
+    const idSet = new Set(ids);
+    return this.data.filter((material) => idSet.has(material.id));
+  }
+
   async create(data: Omit<Material, 'id' | 'created_at' | 'updated_at'>): Promise<Material> {
     const now = new Date().toISOString();
     const material: Material = { ...data, id: generateId(), created_at: now, updated_at: now };
@@ -120,6 +126,17 @@ export class InMemoryMaterialPriceRepository implements IMaterialPriceRepository
 
   async findByMaterial(materialId: string): Promise<MaterialPrice[]> {
     return this.data.filter(mp => mp.material_id === materialId);
+  }
+
+  async findByMaterialsAndSupplier(materialIds: string[], supplierId: string): Promise<MaterialPrice[]> {
+    if (materialIds.length === 0) return [];
+    const materialIdSet = new Set(materialIds);
+    return this.data
+      .filter(
+        (price) =>
+          materialIdSet.has(price.material_id) && price.supplier_id === supplierId,
+      )
+      .sort((a, b) => b.effective_date.localeCompare(a.effective_date));
   }
 
   async create(data: Omit<MaterialPrice, 'id' | 'created_at'>): Promise<MaterialPrice> {

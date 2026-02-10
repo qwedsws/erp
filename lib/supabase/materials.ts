@@ -72,6 +72,16 @@ export async function fetchMaterialById(id: string): Promise<Material | null> {
   return (data as Material | null) ?? null
 }
 
+export async function fetchMaterialsByIds(ids: string[]): Promise<Material[]> {
+  if (ids.length === 0) return []
+  const { data, error } = await supabase
+    .from('materials')
+    .select('*')
+    .in('id', ids)
+  if (error) throw error
+  return data as Material[]
+}
+
 export async function fetchStocks(options?: QueryRangeOptions): Promise<Stock[]> {
   let query = supabase.from('stocks').select('*')
   query = applyRange(query, options)
@@ -148,6 +158,16 @@ export async function fetchPurchaseRequestById(id: string): Promise<PurchaseRequ
   return (data as PurchaseRequest | null) ?? null
 }
 
+export async function fetchPurchaseRequestsByIds(ids: string[]): Promise<PurchaseRequest[]> {
+  if (ids.length === 0) return []
+  const { data, error } = await supabase
+    .from('purchase_requests')
+    .select('*')
+    .in('id', ids)
+  if (error) throw error
+  return data as PurchaseRequest[]
+}
+
 export async function fetchMaterialPrices(options?: QueryRangeOptions): Promise<MaterialPrice[]> {
   let query = supabase.from('material_prices').select('*').order('effective_date', { ascending: false })
   query = applyRange(query, options)
@@ -161,6 +181,21 @@ export async function fetchMaterialPricesByMaterial(materialId: string): Promise
     .from('material_prices')
     .select('*')
     .eq('material_id', materialId)
+    .order('effective_date', { ascending: false })
+  if (error) throw error
+  return data as MaterialPrice[]
+}
+
+export async function fetchMaterialPricesByMaterialsAndSupplier(
+  materialIds: string[],
+  supplierId: string,
+): Promise<MaterialPrice[]> {
+  if (materialIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('material_prices')
+    .select('*')
+    .eq('supplier_id', supplierId)
+    .in('material_id', materialIds)
     .order('effective_date', { ascending: false })
   if (error) throw error
   return data as MaterialPrice[]
@@ -259,6 +294,12 @@ export async function deletePurchaseOrderDB(id: string) {
 export async function insertPurchaseRequest(pr: PurchaseRequest) {
   const { error } = await supabase.from('purchase_requests').insert(pr)
   if (error) console.error('insertPR error:', error)
+}
+
+export async function insertPurchaseRequests(prs: PurchaseRequest[]) {
+  if (prs.length === 0) return
+  const { error } = await supabase.from('purchase_requests').insert(prs)
+  if (error) console.error('insertPRs error:', error)
 }
 
 export async function updatePurchaseRequestDB(id: string, data: Partial<PurchaseRequest>) {

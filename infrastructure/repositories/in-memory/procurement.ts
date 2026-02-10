@@ -85,12 +85,36 @@ export class InMemoryPurchaseRequestRepository implements IPurchaseRequestReposi
     return this.data.find(pr => pr.id === id) ?? null;
   }
 
+  async findByIds(ids: string[]): Promise<PurchaseRequest[]> {
+    if (ids.length === 0) return [];
+    const idSet = new Set(ids);
+    return this.data.filter((pr) => idSet.has(pr.id));
+  }
+
   async create(data: Omit<PurchaseRequest, 'id' | 'pr_no' | 'created_at' | 'updated_at'>): Promise<PurchaseRequest> {
     const now = new Date().toISOString();
     const pr_no = generateDocumentNo('PR', this.data.map(pr => pr.pr_no));
     const pr: PurchaseRequest = { ...data, id: generateId(), pr_no, created_at: now, updated_at: now };
     this.data.push(pr);
     return pr;
+  }
+
+  async createMany(data: Omit<PurchaseRequest, 'id' | 'pr_no' | 'created_at' | 'updated_at'>[]): Promise<PurchaseRequest[]> {
+    const created: PurchaseRequest[] = [];
+    for (const item of data) {
+      const now = new Date().toISOString();
+      const pr_no = generateDocumentNo('PR', this.data.map((pr) => pr.pr_no));
+      const pr: PurchaseRequest = {
+        ...item,
+        id: generateId(),
+        pr_no,
+        created_at: now,
+        updated_at: now,
+      };
+      this.data.push(pr);
+      created.push(pr);
+    }
+    return created;
   }
 
   async update(id: string, data: Partial<PurchaseRequest>): Promise<PurchaseRequest> {

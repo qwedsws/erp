@@ -18,6 +18,10 @@ export class SupabaseMaterialRepository implements IMaterialRepository {
     return sb.fetchMaterialById(id);
   }
 
+  async findByIds(ids: string[]): Promise<Material[]> {
+    return sb.fetchMaterialsByIds(ids);
+  }
+
   async create(input: Omit<Material, 'id' | 'created_at' | 'updated_at'>): Promise<Material> {
     const now = new Date().toISOString();
     const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
@@ -93,6 +97,10 @@ export class SupabaseMaterialPriceRepository implements IMaterialPriceRepository
 
   async findByMaterial(materialId: string): Promise<MaterialPrice[]> {
     return sb.fetchMaterialPricesByMaterial(materialId);
+  }
+
+  async findByMaterialsAndSupplier(materialIds: string[], supplierId: string): Promise<MaterialPrice[]> {
+    return sb.fetchMaterialPricesByMaterialsAndSupplier(materialIds, supplierId);
   }
 
   async create(data: Omit<MaterialPrice, 'id' | 'created_at'>): Promise<MaterialPrice> {

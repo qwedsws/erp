@@ -23,11 +23,14 @@ export class ConvertRequestsToPOUseCase {
 
   async execute(input: ConvertRequestsToPOInput): Promise<Result<ConvertRequestsToPOResult>> {
     const now = new Date().toISOString();
-    const targetRequestIds = new Set(input.prIds);
+    const targetRequestIds = [...new Set(input.prIds)];
 
-    const allRequests = await this.prRepo.findAll();
-    const requests = allRequests.filter(
-      pr => targetRequestIds.has(pr.id) && pr.status === 'APPROVED',
+    if (targetRequestIds.length === 0) {
+      return failure(new ValidationError('No purchase requests selected'));
+    }
+
+    const requests = (await this.prRepo.findByIds(targetRequestIds)).filter(
+      (pr) => pr.status === 'APPROVED',
     );
 
     if (requests.length === 0) {
@@ -35,49 +38,43 @@ export class ConvertRequestsToPOUseCase {
     }
 
     const uniqueMaterialIds = [...new Set(requests.map(pr => pr.material_id))];
-    const materialEntries = await Promise.all(
-      uniqueMaterialIds.map(async (materialId) => {
-        const material = await this.materialRepo.findById(materialId);
-        return [materialId, material] as const;
-      }),
+    const materialById = new Map(
+      (await this.materialRepo.findByIds(uniqueMaterialIds)).map((material) => [material.id, material]),
     );
-    const materialById = new Map(materialEntries);
 
-    const items = await Promise.all(
-      requests.map(async pr => {
-        const material = materialById.get(pr.material_id);
+    const items = requests.map((pr) => {
+      const material = materialById.get(pr.material_id);
 
-        // Inherit STEEL dimension fields from purchase request
-        const hasDimensions = pr.dimension_w && pr.dimension_l && pr.dimension_h;
-        const isSteel = material?.category === 'STEEL' && material.density && material.price_per_kg;
+      // Inherit STEEL dimension fields from purchase request
+      const hasDimensions = pr.dimension_w && pr.dimension_l && pr.dimension_h;
+      const isSteel = material?.category === 'STEEL' && material.density && material.price_per_kg;
 
-        let unitPrice = material?.unit_price ?? 0;
-        let pieceWeight: number | undefined;
-        let totalWeight: number | undefined;
+      let unitPrice = material?.unit_price ?? 0;
+      let pieceWeight: number | undefined;
+      let totalWeight: number | undefined;
 
-        if (isSteel && hasDimensions && material.density && material.price_per_kg) {
-          pieceWeight = pr.piece_weight ?? (material.density * pr.dimension_w! * pr.dimension_l! * pr.dimension_h! / 1_000_000);
-          totalWeight = Math.round(pieceWeight * pr.quantity * 100) / 100;
-          unitPrice = Math.round(pieceWeight * material.price_per_kg);
-        }
+      if (isSteel && hasDimensions && material.density && material.price_per_kg) {
+        pieceWeight = pr.piece_weight ?? (material.density * pr.dimension_w! * pr.dimension_l! * pr.dimension_h! / 1_000_000);
+        totalWeight = Math.round(pieceWeight * pr.quantity * 100) / 100;
+        unitPrice = Math.round(pieceWeight * material.price_per_kg);
+      }
 
-        return {
-          id: generateId(),
-          material_id: pr.material_id,
-          quantity: pr.quantity,
-          unit_price: unitPrice,
-          received_quantity: 0,
-          // Pass dimension fields from PR to PO item
-          ...(hasDimensions ? {
-            dimension_w: pr.dimension_w,
-            dimension_l: pr.dimension_l,
-            dimension_h: pr.dimension_h,
-            piece_weight: pieceWeight,
-            total_weight: totalWeight,
-          } : {}),
-        };
-      }),
-    );
+      return {
+        id: generateId(),
+        material_id: pr.material_id,
+        quantity: pr.quantity,
+        unit_price: unitPrice,
+        received_quantity: 0,
+        // Pass dimension fields from PR to PO item
+        ...(hasDimensions ? {
+          dimension_w: pr.dimension_w,
+          dimension_l: pr.dimension_l,
+          dimension_h: pr.dimension_h,
+          piece_weight: pieceWeight,
+          total_weight: totalWeight,
+        } : {}),
+      };
+    });
 
     const total_amount = items.reduce((sum, it) => {
       // For items with total_weight and steel pricing, use weight-based amount
@@ -99,14 +96,14 @@ export class ConvertRequestsToPOUseCase {
       total_amount,
     });
 
-    const updatedRequests: PurchaseRequest[] = [];
-    for (const pr of requests) {
-      const updated = await this.prRepo.update(pr.id, {
-        status: 'CONVERTED',
-        po_id: purchaseOrder.id,
-      });
-      updatedRequests.push(updated);
-    }
+    const updatedRequests = await Promise.all(
+      requests.map((pr) =>
+        this.prRepo.update(pr.id, {
+          status: 'CONVERTED',
+          po_id: purchaseOrder.id,
+        }),
+      ),
+    );
 
     return success({ purchaseOrder, updatedRequests });
   }

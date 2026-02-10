@@ -20,7 +20,9 @@ export interface IPurchaseOrderRepository {
 export interface IPurchaseRequestRepository {
   findAll(options?: QueryRangeOptions): Promise<PurchaseRequest[]>;
   findById(id: string): Promise<PurchaseRequest | null>;
+  findByIds(ids: string[]): Promise<PurchaseRequest[]>;
   create(data: Omit<PurchaseRequest, 'id' | 'pr_no' | 'created_at' | 'updated_at'>): Promise<PurchaseRequest>;
+  createMany(data: Omit<PurchaseRequest, 'id' | 'pr_no' | 'created_at' | 'updated_at'>[]): Promise<PurchaseRequest[]>;
   update(id: string, data: Partial<PurchaseRequest>): Promise<PurchaseRequest>;
   delete(id: string): Promise<void>;
 }

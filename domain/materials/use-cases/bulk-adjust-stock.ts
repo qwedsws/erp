@@ -14,8 +14,6 @@ export class BulkAdjustStockUseCase {
 
   async execute(input: BulkAdjustInput): Promise<Result<{ movements: StockMovement[]; stocks: Stock[] }>> {
     const now = new Date().toISOString();
-    const movements: StockMovement[] = [];
-    const stocks: Stock[] = [];
     const uniqueMaterialIds = [...new Set(input.adjustments.map((adj) => adj.material_id))];
     const stockEntries = await Promise.all(
       uniqueMaterialIds.map(async (materialId) => {
@@ -24,6 +22,8 @@ export class BulkAdjustStockUseCase {
       }),
     );
     const stockByMaterialId = new Map(stockEntries);
+    const movementInputs: Omit<StockMovement, 'id' | 'created_at'>[] = [];
+    const stockUpsertByMaterialId = new Map<string, Stock>();
 
     for (const adj of input.adjustments) {
       const stock = stockByMaterialId.get(adj.material_id) ?? null;
@@ -32,34 +32,42 @@ export class BulkAdjustStockUseCase {
 
       if (diff === 0) continue;
 
-      const movement = await this.movementRepo.create({
+      movementInputs.push({
         material_id: adj.material_id,
         type: 'ADJUST',
         quantity: diff,
         reason: `재고 실사 조정 (${currentQty} → ${adj.actual_qty})`,
       });
-      movements.push(movement);
 
       if (stock) {
-        const updatedStock = await this.stockRepo.upsert({
+        const updatedStock: Stock = {
           ...stock,
           quantity: adj.actual_qty,
           updated_at: now,
-        });
+        };
         stockByMaterialId.set(adj.material_id, updatedStock);
-        stocks.push(updatedStock);
+        stockUpsertByMaterialId.set(adj.material_id, updatedStock);
       } else {
-        const newStock = await this.stockRepo.upsert({
+        const newStock: Stock = {
           id: generateId(),
           material_id: adj.material_id,
           quantity: adj.actual_qty,
           avg_unit_price: 0,
           updated_at: now,
-        });
+        };
         stockByMaterialId.set(adj.material_id, newStock);
-        stocks.push(newStock);
+        stockUpsertByMaterialId.set(adj.material_id, newStock);
       }
     }
+
+    const movements = this.movementRepo.createMany
+      ? await this.movementRepo.createMany(movementInputs)
+      : await Promise.all(movementInputs.map((movementInput) => this.movementRepo.create(movementInput)));
+
+    const stockUpserts = [...stockUpsertByMaterialId.values()];
+    const stocks = this.stockRepo.upsertMany
+      ? await this.stockRepo.upsertMany(stockUpserts)
+      : await Promise.all(stockUpserts.map((stock) => this.stockRepo.upsert(stock)));
 
     return success({ movements, stocks });
   }

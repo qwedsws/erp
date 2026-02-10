@@ -125,21 +125,31 @@ export class ReceivePurchaseOrderUseCase {
       : await Promise.all(stockUpsertPayloads.map((stockPayload) => this.stockRepo.upsert(stockPayload)));
 
     const newPrices: MaterialPrice[] = [];
-    const existingAllPrices = await this.priceRepo.findAll();
-    const latestPriceByMaterialSupplier = new Map<string, MaterialPrice>();
-    for (const price of existingAllPrices) {
-      const key = `${price.material_id}::${price.supplier_id}`;
-      const latest = latestPriceByMaterialSupplier.get(key);
-      if (!latest || price.effective_date > latest.effective_date) {
-        latestPriceByMaterialSupplier.set(key, price);
+    const existingSupplierPrices = await this.priceRepo.findByMaterialsAndSupplier(
+      uniqueMaterialIds,
+      po.supplier_id,
+    );
+    const latestPriceByMaterialId = new Map<string, MaterialPrice>();
+    for (const price of existingSupplierPrices) {
+      const latest = latestPriceByMaterialId.get(price.material_id);
+      const isLatest =
+        !latest ||
+        price.effective_date > latest.effective_date ||
+        (
+          price.effective_date === latest.effective_date &&
+          (price.created_at ?? '') > (latest.created_at ?? '')
+        );
+      if (isLatest) {
+        latestPriceByMaterialId.set(price.material_id, price);
       }
     }
+
     const materialPriceInputs: Omit<MaterialPrice, 'id' | 'created_at'>[] = [];
     for (const materialId of uniqueMaterialIds) {
       const agg = receivedByMaterialId.get(materialId);
       if (!agg) continue;
 
-      const latestPrice = latestPriceByMaterialSupplier.get(`${materialId}::${po.supplier_id}`);
+      const latestPrice = latestPriceByMaterialId.get(materialId);
       if (!latestPrice || latestPrice.unit_price !== agg.unitPrice) {
         materialPriceInputs.push({
           material_id: materialId,

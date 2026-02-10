@@ -42,7 +42,7 @@ export function usePurchaseRequestForm() {
   const { materials } = useMaterials();
   const { stocks } = useStocks();
   const { profiles } = useProfiles();
-  const { addPurchaseRequest, isLoading } = usePurchaseRequests();
+  const { addPurchaseRequests, isLoading } = usePurchaseRequests();
   const { showError, showSuccess } = useFeedbackToast();
 
   const [header, setHeader] = useState({
@@ -148,17 +148,14 @@ export function usePurchaseRequestForm() {
       return;
     }
 
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const item of validItems) {
+    const payload = validItems.map((item) => {
       const calc = calcSteelItem(item);
       const dimW = Number(item.dimension_w) || undefined;
       const dimL = Number(item.dimension_l) || undefined;
       const dimH = Number(item.dimension_h) || undefined;
-
       const noteParts = [item.custom_name, header.notes].filter(Boolean);
-      const result = await addPurchaseRequest({
+
+      return {
         material_id: item.material_id,
         quantity: Number(item.quantity),
         required_date: header.required_date,
@@ -174,17 +171,15 @@ export function usePurchaseRequestForm() {
               piece_weight: calc.pieceWeight > 0 ? Math.round(calc.pieceWeight * 1000) / 1000 : undefined,
             }
           : {}),
-      });
+      };
+    });
 
-      if (result.ok) successCount++;
-      else failCount++;
-    }
-
-    if (failCount === 0) {
-      showSuccess(`${successCount}건의 구매 요청이 등록되었습니다.`);
+    const result = await addPurchaseRequests(payload);
+    if (result.ok) {
+      showSuccess(`${result.value.length}건의 구매 요청이 등록되었습니다.`);
       router.push('/materials/purchase-requests');
     } else {
-      showError(`${successCount}건 성공, ${failCount}건 실패`);
+      showError(result.error);
     }
   };
 

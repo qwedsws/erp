@@ -73,6 +73,10 @@ export class SupabasePurchaseRequestRepository implements IPurchaseRequestReposi
     return sb.fetchPurchaseRequestById(id);
   }
 
+  async findByIds(ids: string[]): Promise<PurchaseRequest[]> {
+    return sb.fetchPurchaseRequestsByIds(ids);
+  }
+
   async create(input: Omit<PurchaseRequest, 'id' | 'pr_no' | 'created_at' | 'updated_at'>): Promise<PurchaseRequest> {
     const now = new Date().toISOString();
     const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
@@ -80,6 +84,19 @@ export class SupabasePurchaseRequestRepository implements IPurchaseRequestReposi
     const pr: PurchaseRequest = { ...input, id, pr_no, created_at: now, updated_at: now } as PurchaseRequest;
     await sb.insertPurchaseRequest(pr);
     return pr;
+  }
+
+  async createMany(input: Omit<PurchaseRequest, 'id' | 'pr_no' | 'created_at' | 'updated_at'>[]): Promise<PurchaseRequest[]> {
+    const now = new Date().toISOString();
+    const year = new Date().getFullYear();
+    const seed = Date.now();
+    const prs = input.map((item, index) => {
+      const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
+      const pr_no = `PR-${year}-${String(seed + index).slice(-6)}`;
+      return { ...item, id, pr_no, created_at: now, updated_at: now } as PurchaseRequest;
+    });
+    await sb.insertPurchaseRequests(prs);
+    return prs;
   }
 
   async update(id: string, data: Partial<PurchaseRequest>): Promise<PurchaseRequest> {

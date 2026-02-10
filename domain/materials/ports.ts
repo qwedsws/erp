@@ -4,6 +4,7 @@ import type { QueryRangeOptions } from '@/domain/shared/types';
 export interface IMaterialRepository {
   findAll(options?: QueryRangeOptions): Promise<Material[]>;
   findById(id: string): Promise<Material | null>;
+  findByIds(ids: string[]): Promise<Material[]>;
   create(data: Omit<Material, 'id' | 'created_at' | 'updated_at'>): Promise<Material>;
   update(id: string, data: Partial<Material>): Promise<Material>;
   delete(id: string): Promise<void>;
@@ -26,6 +27,7 @@ export interface IStockMovementRepository {
 export interface IMaterialPriceRepository {
   findAll(options?: QueryRangeOptions): Promise<MaterialPrice[]>;
   findByMaterial(materialId: string): Promise<MaterialPrice[]>;
+  findByMaterialsAndSupplier(materialIds: string[], supplierId: string): Promise<MaterialPrice[]>;
   create(data: Omit<MaterialPrice, 'id' | 'created_at'>): Promise<MaterialPrice>;
   createMany?(data: Omit<MaterialPrice, 'id' | 'created_at'>[]): Promise<MaterialPrice[]>;
   delete(id: string): Promise<void>;
