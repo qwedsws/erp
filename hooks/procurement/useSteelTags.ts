@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useERPStore } from '@/store';
 import { getSteelTagRepository } from '@/infrastructure/di/container';
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/domain/materials/use-cases/transition-steel-tag-status';
 import type { SteelTagStatus } from '@/domain/materials/entities';
 import { useAsyncAction } from '@/hooks/shared/useAsyncAction';
+import { useInitialHydration } from '@/hooks/admin/useInitialHydration';
 
 export function useSteelTags() {
   const steelTags = useERPStore((s) => s.steelTags);
@@ -17,6 +19,12 @@ export function useSteelTags() {
   const updateInCache = useERPStore((s) => s.updateSteelTagInCache);
   const removeFromCache = useERPStore((s) => s.removeSteelTagFromCache);
   const { run, isLoading, error } = useAsyncAction();
+  const { hydrateResources, isResourceHydrated } = useInitialHydration();
+
+  useEffect(() => {
+    if (isResourceHydrated('steelTags')) return;
+    void hydrateResources([{ resource: 'steelTags' }]);
+  }, [hydrateResources, isResourceHydrated]);
 
   const repo = getSteelTagRepository();
   const transitionUseCase = new TransitionSteelTagStatusUseCase(repo);

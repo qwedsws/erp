@@ -75,7 +75,7 @@ export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel 
   const { suppliers } = useSuppliers();
   const { materials } = useMaterials();
   const { profiles } = useProfiles();
-  const { stockMovements } = useStocks();
+  const { stockMovements } = useStocks({ includeStocks: false, includeMovements: true });
   const { showError, showInfo, showSuccess } = useFeedbackToast();
 
   const poId = typeof params.id === 'string' ? params.id : params.id?.[0];

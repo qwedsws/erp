@@ -4,14 +4,16 @@ import type {
   IPurchaseRequestRepository,
 } from '@/domain/procurement/ports';
 import type { Supplier, PurchaseOrder, PurchaseRequest } from '@/domain/procurement/entities';
-import { generateId, generateDocumentNo } from '@/domain/shared/types';
+import { generateId, generateDocumentNo, type QueryRangeOptions } from '@/domain/shared/types';
 import { mockSuppliers, mockPurchaseOrders, mockPurchaseRequests } from '@/lib/mock-data';
 
 export class InMemorySupplierRepository implements ISupplierRepository {
   private data: Supplier[] = [...mockSuppliers];
 
-  async findAll(): Promise<Supplier[]> {
-    return this.data;
+  async findAll(options?: QueryRangeOptions): Promise<Supplier[]> {
+    if (!options?.limit) return this.data;
+    const from = options.offset ?? 0;
+    return this.data.slice(from, from + options.limit);
   }
 
   async findById(id: string): Promise<Supplier | null> {
@@ -40,8 +42,10 @@ export class InMemorySupplierRepository implements ISupplierRepository {
 export class InMemoryPurchaseOrderRepository implements IPurchaseOrderRepository {
   private data: PurchaseOrder[] = [...mockPurchaseOrders];
 
-  async findAll(): Promise<PurchaseOrder[]> {
-    return this.data;
+  async findAll(options?: QueryRangeOptions): Promise<PurchaseOrder[]> {
+    if (!options?.limit) return this.data;
+    const from = options.offset ?? 0;
+    return this.data.slice(from, from + options.limit);
   }
 
   async findById(id: string): Promise<PurchaseOrder | null> {
@@ -71,8 +75,10 @@ export class InMemoryPurchaseOrderRepository implements IPurchaseOrderRepository
 export class InMemoryPurchaseRequestRepository implements IPurchaseRequestRepository {
   private data: PurchaseRequest[] = [...mockPurchaseRequests];
 
-  async findAll(): Promise<PurchaseRequest[]> {
-    return this.data;
+  async findAll(options?: QueryRangeOptions): Promise<PurchaseRequest[]> {
+    if (!options?.limit) return this.data;
+    const from = options.offset ?? 0;
+    return this.data.slice(from, from + options.limit);
   }
 
   async findById(id: string): Promise<PurchaseRequest | null> {

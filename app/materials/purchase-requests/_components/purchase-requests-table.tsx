@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, X, ArrowRightLeft } from 'lucide-react';
 import { StatusBadge } from '@/components/common/status-badge';
 import { PR_STATUS_MAP } from '@/types';
@@ -31,8 +32,16 @@ export function PurchaseRequestsTable({
   onReject,
   onConvertSingle,
 }: PurchaseRequestsTableProps) {
+  const router = useRouter();
   const allApprovedChecked =
     approvedIds.size > 0 && [...approvedIds].every((id) => checkedIds.has(id));
+
+  const hasDimensions = useMemo(
+    () => requests.some((pr) => pr.dimension_w && pr.dimension_l && pr.dimension_h),
+    [requests],
+  );
+
+  const colCount = hasDimensions ? 10 : 9;
 
   return (
     <>
@@ -53,6 +62,9 @@ export function PurchaseRequestsTable({
               </th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">요청번호</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재명</th>
+              {hasDimensions && (
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">치수(mm)</th>
+              )}
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">수량</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">필요일</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">요청자</th>
@@ -66,13 +78,18 @@ export function PurchaseRequestsTable({
               const material = materialById.get(pr.material_id);
               const requester = profileById.get(pr.requested_by);
               const isApproved = pr.status === 'APPROVED';
+              const hasDims = pr.dimension_w && pr.dimension_l && pr.dimension_h;
+              const dimensionStr = hasDims
+                ? `${pr.dimension_w}×${pr.dimension_l}×${pr.dimension_h}`
+                : '-';
 
               return (
                 <tr
                   key={pr.id}
-                  className="border-b border-border last:border-0 hover:bg-muted/30"
+                  className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/30"
+                  onClick={() => router.push(`/materials/purchase-requests/${pr.id}`)}
                 >
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                     {isApproved && (
                       <input
                         type="checkbox"
@@ -84,6 +101,9 @@ export function PurchaseRequestsTable({
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">{pr.pr_no}</td>
                   <td className="px-4 py-3 font-medium">{material?.name || '-'}</td>
+                  {hasDimensions && (
+                    <td className="px-4 py-3 font-mono text-xs">{dimensionStr}</td>
+                  )}
                   <td className="px-4 py-3 text-right">
                     {pr.quantity.toLocaleString()}
                     {material?.unit ? ` ${material.unit}` : ''}
@@ -98,7 +118,7 @@ export function PurchaseRequestsTable({
                   <td className="px-4 py-3">
                     {new Date(pr.created_at).toLocaleDateString('ko-KR')}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-1">
                       {pr.status === 'PENDING' && (
                         <>
@@ -137,7 +157,7 @@ export function PurchaseRequestsTable({
             })}
             {requests.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={colCount} className="px-4 py-8 text-center text-muted-foreground">
                   구매 요청 데이터가 없습니다.
                 </td>
               </tr>
@@ -145,7 +165,6 @@ export function PurchaseRequestsTable({
           </tbody>
         </table>
       </div>
-      <div className="mt-2 text-xs text-muted-foreground">총 {requests.length}건</div>
     </>
   );
 }

@@ -162,6 +162,7 @@ export default function MaterialItemsPage() {
         columns={columns}
         searchPlaceholder="자재명, 자재코드 검색..."
         searchKeys={['name', 'material_code']}
+        pageSize={20}
         onRowClick={(item) => router.push(`/materials/items/${item.id}`)}
       />
     </div>

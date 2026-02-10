@@ -3,6 +3,11 @@ export type Result<T, E = Error> =
   | { ok: true; value: T }
   | { ok: false; error: E };
 
+export interface QueryRangeOptions {
+  limit?: number;
+  offset?: number;
+}
+
 export function success<T>(value: T): Result<T, never> {
   return { ok: true, value };
 }

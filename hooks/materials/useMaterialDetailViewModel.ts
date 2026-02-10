@@ -74,8 +74,10 @@ function parseOptionalNumber(value: string): number | undefined {
 }
 
 export function useMaterialDetailViewModel(materialId?: string) {
-  const { materials, materialPrices, updateMaterial, deleteMaterial } = useMaterials();
-  const { stocks, stockMovements } = useStocks();
+  const { materials, materialPrices, updateMaterial, deleteMaterial } = useMaterials({
+    includeMaterialPrices: true,
+  });
+  const { stocks, stockMovements } = useStocks({ includeMovements: true });
   const { suppliers } = useSuppliers();
   const { projects } = useProjects();
   const { steelTags } = useSteelTags();

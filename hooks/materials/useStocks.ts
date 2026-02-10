@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useERPStore } from '@/store';
 import { getStockMovementRepository, getStockRepository } from '@/infrastructure/di/container';
 import { StockOutUseCase } from '@/domain/materials/use-cases/stock-out';
@@ -8,13 +9,35 @@ import { BulkAdjustStockUseCase } from '@/domain/materials/use-cases/bulk-adjust
 import { ReceiveDirectStockUseCase } from '@/domain/materials/use-cases/receive-direct-stock';
 import type { StockMovement } from '@/domain/materials/entities';
 import { useAsyncAction } from '@/hooks/shared/useAsyncAction';
+import { useInitialHydration } from '@/hooks/admin/useInitialHydration';
+import type { HydrationRequest } from '@/hooks/admin/useInitialHydration';
 
-export function useStocks() {
+interface UseStocksOptions {
+  includeStocks?: boolean;
+  includeMovements?: boolean;
+}
+
+export function useStocks(options?: UseStocksOptions) {
   const stocks = useERPStore((s) => s.stocks);
   const stockMovements = useERPStore((s) => s.stockMovements);
   const addMovementToCache = useERPStore((s) => s.addStockMovementToCache);
   const upsertStockInCache = useERPStore((s) => s.upsertStockInCache);
   const { run, isLoading, error } = useAsyncAction();
+  const { hydrateResources, isResourceHydrated } = useInitialHydration();
+  const includeStocks = options?.includeStocks ?? true;
+  const includeMovements = options?.includeMovements ?? false;
+
+  useEffect(() => {
+    const requests: HydrationRequest[] = [];
+    if (includeStocks) requests.push({ resource: 'stocks' as const });
+    if (includeMovements) requests.push({ resource: 'stockMovements' as const });
+    if (requests.length === 0) return;
+
+    const allHydrated = requests.every((request) => isResourceHydrated(request.resource));
+    if (allHydrated) return;
+
+    void hydrateResources(requests);
+  }, [hydrateResources, includeMovements, includeStocks, isResourceHydrated]);
 
   const stockRepo = getStockRepository();
   const movementRepo = getStockMovementRepository();

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { generateSteelTagNo, calcSteelWeight } from '@/lib/utils';
 import type { Material, PurchaseOrder } from '@/domain/shared/entities';
-import type { ReceiveItemForm } from '@/app/materials/receiving/new/page';
+import type { ReceiveItemForm } from '@/hooks/materials/receiving-types';
 
 /** Mirrors the SteelTagEntry interface from the steel-tag-table component. */
 export interface SteelTagEntry {

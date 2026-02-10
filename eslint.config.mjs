@@ -24,7 +24,6 @@ const eslintConfig = defineConfig([
   {
     files: [
       "store/**/*.{js,jsx,ts,tsx}",
-      "hooks/**/*.{js,jsx,ts,tsx}",
       "infrastructure/**/*.{js,jsx,ts,tsx}",
       "lib/supabase/**/*.{js,jsx,ts,tsx}",
       "lib/mock-data.ts",
@@ -38,6 +37,29 @@ const eslintConfig = defineConfig([
               name: "@/types",
               message:
                 "Application/Infrastructure 레이어는 '@/types' 대신 domain/*/entities 또는 domain/shared/entities를 사용하세요.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["hooks/**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/types",
+              message:
+                "Application/Infrastructure 레이어는 '@/types' 대신 domain/*/entities 또는 domain/shared/entities를 사용하세요.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@/app/*", "@/app/**"],
+              message: "Hooks 레이어는 app 레이어를 직접 참조하지 마세요.",
             },
           ],
         },

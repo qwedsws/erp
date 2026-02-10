@@ -10,6 +10,7 @@ import type {
   MaterialPrice,
   SteelTag,
 } from '@/domain/shared/entities'
+import type { QueryRangeOptions } from '@/domain/shared/types'
 
 const supabase = createClient()
 
@@ -23,10 +24,22 @@ function mapPurchaseOrderRow(po: PurchaseOrderRow): PurchaseOrder {
   } as PurchaseOrder
 }
 
+function applyRange<T extends { range: (from: number, to: number) => T }>(
+  query: T,
+  options?: QueryRangeOptions,
+): T {
+  if (typeof options?.limit !== 'number') return query
+  const from = options.offset ?? 0
+  const to = from + options.limit - 1
+  return query.range(from, to)
+}
+
 // ============ FETCH (SELECT) ============
 
-export async function fetchSuppliers(): Promise<Supplier[]> {
-  const { data, error } = await supabase.from('suppliers').select('*').order('created_at')
+export async function fetchSuppliers(options?: QueryRangeOptions): Promise<Supplier[]> {
+  let query = supabase.from('suppliers').select('*').order('created_at')
+  query = applyRange(query, options)
+  const { data, error } = await query
   if (error) throw error
   return data as Supplier[]
 }
@@ -41,8 +54,10 @@ export async function fetchSupplierById(id: string): Promise<Supplier | null> {
   return (data as Supplier | null) ?? null
 }
 
-export async function fetchMaterials(): Promise<Material[]> {
-  const { data, error } = await supabase.from('materials').select('*').order('material_code')
+export async function fetchMaterials(options?: QueryRangeOptions): Promise<Material[]> {
+  let query = supabase.from('materials').select('*').order('material_code')
+  query = applyRange(query, options)
+  const { data, error } = await query
   if (error) throw error
   return data as Material[]
 }
@@ -57,8 +72,10 @@ export async function fetchMaterialById(id: string): Promise<Material | null> {
   return (data as Material | null) ?? null
 }
 
-export async function fetchStocks(): Promise<Stock[]> {
-  const { data, error } = await supabase.from('stocks').select('*')
+export async function fetchStocks(options?: QueryRangeOptions): Promise<Stock[]> {
+  let query = supabase.from('stocks').select('*')
+  query = applyRange(query, options)
+  const { data, error } = await query
   if (error) throw error
   return data as Stock[]
 }
@@ -73,17 +90,31 @@ export async function fetchStockByMaterialId(materialId: string): Promise<Stock 
   return (data as Stock | null) ?? null
 }
 
-export async function fetchStockMovements(): Promise<StockMovement[]> {
-  const { data, error } = await supabase.from('stock_movements').select('*').order('created_at', { ascending: false })
+export async function fetchStocksByMaterialIds(materialIds: string[]): Promise<Stock[]> {
+  if (materialIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('stocks')
+    .select('*')
+    .in('material_id', materialIds)
+  if (error) throw error
+  return data as Stock[]
+}
+
+export async function fetchStockMovements(options?: QueryRangeOptions): Promise<StockMovement[]> {
+  let query = supabase.from('stock_movements').select('*').order('created_at', { ascending: false })
+  query = applyRange(query, options)
+  const { data, error } = await query
   if (error) throw error
   return data as StockMovement[]
 }
 
-export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
-  const { data, error } = await supabase
+export async function fetchPurchaseOrders(options?: QueryRangeOptions): Promise<PurchaseOrder[]> {
+  let query = supabase
     .from('purchase_orders')
     .select('*, purchase_order_items(*)')
     .order('created_at', { ascending: false })
+  query = applyRange(query, options)
+  const { data, error } = await query
   if (error) throw error
   return ((data || []) as PurchaseOrderRow[]).map(mapPurchaseOrderRow)
 }
@@ -99,8 +130,10 @@ export async function fetchPurchaseOrderById(id: string): Promise<PurchaseOrder 
   return mapPurchaseOrderRow(data as PurchaseOrderRow)
 }
 
-export async function fetchPurchaseRequests(): Promise<PurchaseRequest[]> {
-  const { data, error } = await supabase.from('purchase_requests').select('*').order('created_at', { ascending: false })
+export async function fetchPurchaseRequests(options?: QueryRangeOptions): Promise<PurchaseRequest[]> {
+  let query = supabase.from('purchase_requests').select('*').order('created_at', { ascending: false })
+  query = applyRange(query, options)
+  const { data, error } = await query
   if (error) throw error
   return data as PurchaseRequest[]
 }
@@ -115,8 +148,10 @@ export async function fetchPurchaseRequestById(id: string): Promise<PurchaseRequ
   return (data as PurchaseRequest | null) ?? null
 }
 
-export async function fetchMaterialPrices(): Promise<MaterialPrice[]> {
-  const { data, error } = await supabase.from('material_prices').select('*').order('effective_date', { ascending: false })
+export async function fetchMaterialPrices(options?: QueryRangeOptions): Promise<MaterialPrice[]> {
+  let query = supabase.from('material_prices').select('*').order('effective_date', { ascending: false })
+  query = applyRange(query, options)
+  const { data, error } = await query
   if (error) throw error
   return data as MaterialPrice[]
 }
@@ -171,10 +206,22 @@ export async function upsertStock(stock: Stock) {
   if (error) console.error('upsertStock error:', error)
 }
 
+export async function upsertStocks(stocks: Stock[]) {
+  if (stocks.length === 0) return
+  const { error } = await supabase.from('stocks').upsert(stocks, { onConflict: 'id' })
+  if (error) console.error('upsertStocks error:', error)
+}
+
 // -- Stock Movements --
 export async function insertStockMovement(sm: StockMovement) {
   const { error } = await supabase.from('stock_movements').insert(sm)
   if (error) console.error('insertStockMovement error:', error)
+}
+
+export async function insertStockMovements(movements: StockMovement[]) {
+  if (movements.length === 0) return
+  const { error } = await supabase.from('stock_movements').insert(movements)
+  if (error) console.error('insertStockMovements error:', error)
 }
 
 // -- Purchase Orders --
@@ -220,8 +267,10 @@ export async function updatePurchaseRequestDB(id: string, data: Partial<Purchase
 }
 
 // -- Steel Tags --
-export async function fetchSteelTags(): Promise<SteelTag[]> {
-  const { data, error } = await supabase.from('steel_tags').select('*').order('created_at', { ascending: false })
+export async function fetchSteelTags(options?: QueryRangeOptions): Promise<SteelTag[]> {
+  let query = supabase.from('steel_tags').select('*').order('created_at', { ascending: false })
+  query = applyRange(query, options)
+  const { data, error } = await query
   if (error) throw error
   return data as SteelTag[]
 }
@@ -255,6 +304,12 @@ export async function deleteSteelTagDB(id: string) {
 export async function insertMaterialPrice(mp: MaterialPrice) {
   const { error } = await supabase.from('material_prices').insert(mp)
   if (error) console.error('insertMaterialPrice error:', error)
+}
+
+export async function insertMaterialPrices(prices: MaterialPrice[]) {
+  if (prices.length === 0) return
+  const { error } = await supabase.from('material_prices').insert(prices)
+  if (error) console.error('insertMaterialPrices error:', error)
 }
 
 export async function deleteMaterialPriceDB(id: string) {

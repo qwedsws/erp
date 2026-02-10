@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useERPStore } from '@/store';
 import {
   getMaterialRepository,
@@ -10,6 +11,7 @@ import { ConvertRequestsToPOUseCase } from '@/domain/procurement/use-cases/conve
 import { resolveApproverId } from '@/domain/procurement/services';
 import type { PurchaseOrder } from '@/domain/procurement/entities';
 import { useAsyncAction } from '@/hooks/shared/useAsyncAction';
+import { useInitialHydration } from '@/hooks/admin/useInitialHydration';
 
 export function usePurchaseRequests() {
   const purchaseRequests = useERPStore((s) => s.purchaseRequests);
@@ -18,6 +20,12 @@ export function usePurchaseRequests() {
   const updateInCache = useERPStore((s) => s.updatePurchaseRequestInCache);
   const addPurchaseOrderToCache = useERPStore((s) => s.addPurchaseOrderToCache);
   const { run, isLoading, error } = useAsyncAction();
+  const { hydrateResources, isResourceHydrated } = useInitialHydration();
+
+  useEffect(() => {
+    if (isResourceHydrated('purchaseRequests')) return;
+    void hydrateResources([{ resource: 'purchaseRequests' }]);
+  }, [hydrateResources, isResourceHydrated]);
 
   const purchaseRequestRepo = getPurchaseRequestRepository();
   const purchaseOrderRepo = getPurchaseOrderRepository();

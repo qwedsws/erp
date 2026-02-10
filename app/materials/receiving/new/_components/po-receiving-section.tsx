@@ -4,9 +4,9 @@ import React from 'react';
 import { Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { Material, PurchaseOrder, Supplier } from '@/types';
+import type { ReceiveItemForm } from '@/hooks/materials/receiving-types';
 import { SteelTagTable, WeightSummary } from './steel-tag-table';
 import type { SteelTagEntry } from './steel-tag-table';
-import type { ReceiveItemForm } from '../page';
 
 interface POReceivingSectionProps {
   selectedPOId: string;

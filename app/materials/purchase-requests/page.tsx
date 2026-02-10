@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { PromptDialog } from '@/components/common/prompt-dialog';
+import { TablePagination } from '@/components/common/table-pagination';
 import { usePurchaseRequestsPageData } from '@/hooks/procurement/usePurchaseRequestsPageData';
 import { StatusTabs } from './_components/status-tabs';
 import { BatchConvertPanel } from './_components/batch-convert-panel';
 import { PurchaseRequestsTable } from './_components/purchase-requests-table';
+
+const PAGE_SIZE = 20;
 
 export default function PurchaseRequestsPage() {
   const {
@@ -40,6 +43,18 @@ export default function PurchaseRequestsPage() {
     hideConvertPanel,
     handleConvert,
   } = usePurchaseRequestsPageData();
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredRequests.length / PAGE_SIZE)),
+    [filteredRequests.length],
+  );
+  const page = Math.min(currentPage, totalPages);
+
+  const pagedRequests = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredRequests.slice(start, start + PAGE_SIZE);
+  }, [filteredRequests, page]);
 
   const toggleConvertPanel = useCallback(() => {
     if (showConvertPanel) {
@@ -88,7 +103,10 @@ export default function PurchaseRequestsPage() {
       {/* Status filter tabs + batch convert toggle */}
       <StatusTabs
         statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        onStatusChange={(tab) => {
+          setStatusFilter(tab);
+          setCurrentPage(1);
+        }}
         hasCheckedApproved={hasCheckedApproved}
         checkedApprovedCount={checkedApprovedCount}
         onToggleConvertPanel={toggleConvertPanel}
@@ -107,7 +125,7 @@ export default function PurchaseRequestsPage() {
 
       {/* Data table */}
       <PurchaseRequestsTable
-        requests={filteredRequests}
+        requests={pagedRequests}
         materialById={materialById}
         profileById={profileById}
         checkedIds={checkedIds}
@@ -117,6 +135,12 @@ export default function PurchaseRequestsPage() {
         onApprove={handleApprove}
         onReject={openRejectDialog}
         onConvertSingle={selectSingleAndShowPanel}
+      />
+      <TablePagination
+        totalCount={filteredRequests.length}
+        currentPage={page}
+        pageSize={PAGE_SIZE}
+        onPageChange={setCurrentPage}
       />
 
       {/* Reject dialog */}

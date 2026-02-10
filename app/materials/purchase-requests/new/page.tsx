@@ -1,359 +1,308 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
-import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
-import { useMaterials } from '@/hooks/materials/useMaterials';
-import { useStocks } from '@/hooks/materials/useStocks';
-import { useProfiles } from '@/hooks/admin/useProfiles';
-import { usePurchaseRequests } from '@/hooks/procurement/usePurchaseRequests';
-import { calcSteelWeight, calcSteelPrice } from '@/lib/utils';
+import { SearchSelect } from '@/components/common/search-select';
+import { usePurchaseRequestForm } from '@/hooks/procurement/usePurchaseRequestForm';
 
-const inputClass =
+const cellInput =
+  'w-full h-8 px-2 rounded border border-input bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring';
+const headerInput =
   'w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring';
 
 export default function NewPurchaseRequestPage() {
-  const router = useRouter();
-  const { materials } = useMaterials();
-  const { stocks } = useStocks();
-  const { profiles } = useProfiles();
-  const { addPurchaseRequest } = usePurchaseRequests();
-  const { showError, showSuccess } = useFeedbackToast();
+  const {
+    header, setHeader,
+    items, materials, profiles,
+    materialById,
+    validItemCount,
+    addItem, removeItem, updateItem,
+    calcSteelItem, handleSubmit, isLoading,
+  } = usePurchaseRequestForm();
 
-  const [form, setForm] = useState({
-    material_id: '',
-    quantity: '',
-    required_date: '',
-    reason: '',
-    requested_by: '',
-    notes: '',
-    // STEEL dimension fields
-    dimension_w: '',
-    dimension_l: '',
-    dimension_h: '',
-  });
+  const requesterOptions = useMemo(
+    () => profiles.map((p) => ({
+      value: p.id,
+      label: `${p.name} (${p.department ?? p.role})`,
+    })),
+    [profiles],
+  );
 
-  const materialById = useMemo(
-    () => new Map(materials.map((material) => [material.id, material])),
+  const materialCodeOptions = useMemo(
+    () => materials.map((m) => ({
+      value: m.id,
+      label: m.material_code,
+      searchText: `${m.material_code} ${m.name} ${m.steel_grade || ''}`,
+    })),
     [materials],
   );
-  const stockByMaterialId = useMemo(
-    () => new Map(stocks.map((stock) => [stock.material_id, stock])),
-    [stocks],
-  );
 
-  const selectedMaterial = form.material_id ? materialById.get(form.material_id) : null;
-  const isSteel = selectedMaterial?.category === 'STEEL' && !!selectedMaterial.density && !!selectedMaterial.price_per_kg;
-
-  // STEEL calculations
-  const steelCalc = useMemo(() => {
-    if (!isSteel || !selectedMaterial?.density || !selectedMaterial?.price_per_kg) {
-      return { pieceWeight: 0, totalWeight: 0, estimatedAmount: 0 };
-    }
-    const w = Number(form.dimension_w) || 0;
-    const l = Number(form.dimension_l) || 0;
-    const h = Number(form.dimension_h) || 0;
-    const qty = Number(form.quantity) || 0;
-
-    const pieceWeight = (w > 0 && l > 0 && h > 0)
-      ? calcSteelWeight(selectedMaterial.density, w, l, h)
-      : 0;
-    const totalWeight = Math.round(pieceWeight * qty * 100) / 100;
-    const estimatedAmount = totalWeight > 0
-      ? calcSteelPrice(totalWeight, selectedMaterial.price_per_kg)
-      : 0;
-
-    return { pieceWeight, totalWeight, estimatedAmount };
-  }, [isSteel, selectedMaterial, form.dimension_w, form.dimension_l, form.dimension_h, form.quantity]);
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  const handleHeaderChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setForm((prev) => {
-      const updated = { ...prev, [name]: value };
-      // When material changes, auto-fill dimensions from material defaults
-      if (name === 'material_id' && value) {
-        const mat = materialById.get(value);
-        if (mat?.category === 'STEEL' && mat.density && mat.price_per_kg) {
-          updated.dimension_w = mat.dimension_w ? String(mat.dimension_w) : '';
-          updated.dimension_l = mat.dimension_l ? String(mat.dimension_l) : '';
-          updated.dimension_h = mat.dimension_h ? String(mat.dimension_h) : '';
-        } else {
-          updated.dimension_w = '';
-          updated.dimension_l = '';
-          updated.dimension_h = '';
-        }
+    setHeader((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // 마지막 행에 자재를 선택하면 자동으로 빈 행 추가
+  const handleMaterialChange = (index: number, val: string) => {
+    updateItem(index, 'material_id', val);
+    if (val && index === items.length - 1) {
+      addItem();
+    }
+  };
+
+  const handleRowKeyDown = (e: React.KeyboardEvent, rowIndex: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (rowIndex === items.length - 1) {
+        addItem();
       }
-      return updated;
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!form.material_id || !form.quantity || !form.required_date || !form.reason.trim() || !form.requested_by) {
-      showError('필수 항목을 모두 입력하세요.');
-      return;
+      setTimeout(() => {
+        const nextInput = document.querySelector<HTMLInputElement>(`[data-row="${rowIndex + 1}"] td:nth-child(2) input`);
+        nextInput?.focus();
+      }, 0);
     }
-
-    const qty = Number(form.quantity);
-    if (qty <= 0) {
-      showError('수량은 1 이상이어야 합니다.');
-      return;
-    }
-
-    const dimW = Number(form.dimension_w) || undefined;
-    const dimL = Number(form.dimension_l) || undefined;
-    const dimH = Number(form.dimension_h) || undefined;
-
-    const result = await addPurchaseRequest({
-      material_id: form.material_id,
-      quantity: qty,
-      required_date: form.required_date,
-      reason: form.reason,
-      requested_by: form.requested_by,
-      status: 'PENDING' as const,
-      notes: form.notes || undefined,
-      // Include STEEL dimension fields
-      ...(isSteel && dimW && dimL && dimH ? {
-        dimension_w: dimW,
-        dimension_l: dimL,
-        dimension_h: dimH,
-        piece_weight: steelCalc.pieceWeight > 0 ? Math.round(steelCalc.pieceWeight * 1000) / 1000 : undefined,
-      } : {}),
-    });
-    if (result.ok) {
-      showSuccess('구매 요청이 등록되었습니다.');
-      router.push('/materials/purchase-requests');
-    } else {
-      showError(result.error);
-    }
-  };
-
-  const getStockQuantity = (materialId: string): { quantity: number; unit: string } | null => {
-    const material = materialById.get(materialId);
-    const stock = stockByMaterialId.get(materialId);
-    if (!material) return null;
-    return { quantity: stock?.quantity ?? 0, unit: material.unit };
   };
 
   return (
     <div>
+      {/* Back navigation */}
       <div className="flex items-center gap-2 mb-4">
-        <Link
-          href="/materials/purchase-requests"
-          className="p-1 rounded hover:bg-accent"
-        >
+        <Link href="/materials/purchase-requests" className="p-1 rounded hover:bg-accent">
           <ArrowLeft size={18} />
         </Link>
         <span className="text-sm text-muted-foreground">구매 요청</span>
       </div>
 
-      <PageHeader title="구매 요청 등록" description="새로운 구매 요청을 등록합니다" />
+      <PageHeader
+        title="구매 요청 등록 (일괄)"
+        description="여러 자재의 구매 요청을 한 번에 등록합니다"
+      />
 
-      <form onSubmit={handleSubmit} className="max-w-lg">
-        <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-          {/* 자재 선택 */}
-          <div>
-            <label className="block text-sm font-medium mb-1.5">
-              자재 선택 <span className="text-destructive">*</span>
-            </label>
-            <select
-              name="material_id"
-              value={form.material_id}
-              onChange={handleChange}
-              required
-              className={inputClass}
-            >
-              <option value="">선택하세요</option>
-              {materials.map((m) => {
-                const stockInfo = getStockQuantity(m.id);
-                return (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                    {stockInfo
-                      ? ` (현재 재고: ${stockInfo.quantity} ${stockInfo.unit})`
-                      : ''}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
-          {/* STEEL Material Info */}
-          {isSteel && selectedMaterial && (
-            <div className="p-3 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs space-y-1">
-              <p className="text-blue-700 dark:text-blue-300 font-medium">
-                강재 정보: {selectedMaterial.steel_grade || selectedMaterial.name}
-              </p>
-              <p className="text-blue-700 dark:text-blue-300">
-                밀도: {selectedMaterial.density} g/cm3 | kg당 단가: {selectedMaterial.price_per_kg?.toLocaleString()} 원/kg
-              </p>
+      <form onSubmit={(e) => void handleSubmit(e)}>
+        {/* Common header fields */}
+        <div className="rounded-lg border border-border bg-card p-6 mb-6">
+          <h3 className="font-semibold mb-4">공통 정보</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">
+                요청자 <span className="text-destructive">*</span>
+              </label>
+              <SearchSelect
+                options={requesterOptions}
+                value={header.requested_by}
+                onChange={(val) => setHeader((prev) => ({ ...prev, requested_by: val }))}
+                placeholder="요청자 검색..."
+              />
             </div>
-          )}
-
-          {/* STEEL Dimension Inputs */}
-          {isSteel && (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium">치수 (mm)</label>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">가로(W)</label>
-                  <input
-                    name="dimension_w"
-                    type="number"
-                    value={form.dimension_w}
-                    onChange={handleChange}
-                    placeholder="0"
-                    min="0"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">세로(L)</label>
-                  <input
-                    name="dimension_l"
-                    type="number"
-                    value={form.dimension_l}
-                    onChange={handleChange}
-                    placeholder="0"
-                    min="0"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">높이(H)</label>
-                  <input
-                    name="dimension_h"
-                    type="number"
-                    value={form.dimension_h}
-                    onChange={handleChange}
-                    placeholder="0"
-                    min="0"
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-
-              {/* STEEL Calculated Values */}
-              {steelCalc.pieceWeight > 0 && (
-                <div className="p-3 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs space-y-1">
-                  <p className="text-emerald-700 dark:text-emerald-300">
-                    건당 이론 중량: {steelCalc.pieceWeight.toFixed(3)} kg
-                  </p>
-                  {steelCalc.totalWeight > 0 && (
-                    <p className="text-emerald-700 dark:text-emerald-300">
-                      총 중량: {steelCalc.totalWeight.toFixed(2)} kg
-                    </p>
-                  )}
-                  {steelCalc.estimatedAmount > 0 && (
-                    <p className="text-emerald-700 dark:text-emerald-300 font-medium">
-                      예상 금액: {steelCalc.estimatedAmount.toLocaleString()}원
-                    </p>
-                  )}
-                </div>
-              )}
+            <div>
+              <label className="block text-sm font-medium mb-1.5">
+                필요일 <span className="text-destructive">*</span>
+              </label>
+              <input
+                name="required_date"
+                type="date"
+                value={header.required_date}
+                onChange={handleHeaderChange}
+                required
+                className={headerInput}
+              />
             </div>
-          )}
-
-          {/* 수량 */}
-          <div>
-            <label className="block text-sm font-medium mb-1.5">
-              수량 <span className="text-destructive">*</span>
-            </label>
-            <input
-              name="quantity"
-              type="number"
-              min={1}
-              value={form.quantity}
-              onChange={handleChange}
-              required
-              placeholder="1"
-              className={inputClass}
-            />
-          </div>
-
-          {/* 필요일 */}
-          <div>
-            <label className="block text-sm font-medium mb-1.5">
-              필요일 <span className="text-destructive">*</span>
-            </label>
-            <input
-              name="required_date"
-              type="date"
-              value={form.required_date}
-              onChange={handleChange}
-              required
-              className={inputClass}
-            />
-          </div>
-
-          {/* 요청 사유 */}
-          <div>
-            <label className="block text-sm font-medium mb-1.5">
-              요청 사유 <span className="text-destructive">*</span>
-            </label>
-            <textarea
-              name="reason"
-              value={form.reason}
-              onChange={handleChange}
-              required
-              rows={3}
-              placeholder="구매 요청 사유를 입력하세요"
-              className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-            />
-          </div>
-
-          {/* 요청자 */}
-          <div>
-            <label className="block text-sm font-medium mb-1.5">
-              요청자 <span className="text-destructive">*</span>
-            </label>
-            <select
-              name="requested_by"
-              value={form.requested_by}
-              onChange={handleChange}
-              required
-              className={inputClass}
-            >
-              <option value="">선택하세요</option>
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.department ?? p.role})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 비고 */}
-          <div>
-            <label className="block text-sm font-medium mb-1.5">비고</label>
-            <textarea
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              rows={2}
-              placeholder="추가 참고 사항 (선택)"
-              className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-            />
+            <div>
+              <label className="block text-sm font-medium mb-1.5">비고</label>
+              <input
+                name="notes"
+                type="text"
+                value={header.notes}
+                onChange={handleHeaderChange}
+                placeholder="추가 참고 사항 (선택)"
+                className={headerInput}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mt-4">
+        {/* Line items table */}
+        <div className="rounded-lg border border-border bg-card p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">요청 품목</h3>
+            <button
+              type="button"
+              onClick={addItem}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border border-input hover:bg-accent transition-colors"
+            >
+              <Plus size={14} />
+              행 추가
+            </button>
+          </div>
+
+          <div className="overflow-x-auto min-h-[320px]">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="px-2 py-2 text-center font-medium text-muted-foreground w-10">#</th>
+                  <th className="px-2 py-2 text-left font-medium text-muted-foreground min-w-[140px]">품목코드</th>
+                  <th className="px-2 py-2 text-left font-medium text-muted-foreground min-w-[180px]">품목명</th>
+                  <th className="px-2 py-2 text-left font-medium text-muted-foreground min-w-[200px]">규격(mm)</th>
+                  <th className="px-2 py-2 text-right font-medium text-muted-foreground w-20">수량</th>
+                  <th className="px-2 py-2 text-right font-medium text-muted-foreground w-24">단위중량</th>
+                  <th className="px-2 py-2 text-right font-medium text-muted-foreground w-24">총중량</th>
+                  <th className="px-2 py-2 text-left font-medium text-muted-foreground min-w-[160px]">사유</th>
+                  <th className="px-2 py-2 text-center font-medium text-muted-foreground w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, index) => {
+                  const calc = calcSteelItem(item);
+                  const mat = item.material_id ? materialById.get(item.material_id) : null;
+
+                  return (
+                    <tr
+                      key={index}
+                      data-row={index}
+                      className="border-b border-border last:border-0 align-top"
+                    >
+                      {/* # */}
+                      <td className="px-2 py-2 text-center text-muted-foreground">{index + 1}</td>
+
+                      {/* 품목코드 */}
+                      <td className="px-2 py-2">
+                        <SearchSelect
+                          options={materialCodeOptions}
+                          value={item.material_id}
+                          onChange={(val) => handleMaterialChange(index, val)}
+                          placeholder="코드 검색"
+                          compact
+                        />
+                      </td>
+
+                      {/* 품목명 (자유 입력 — 프로젝트/부품 태깅) */}
+                      <td className="px-2 py-2">
+                        <input
+                          type="text"
+                          value={item.custom_name}
+                          onChange={(e) => updateItem(index, 'custom_name', e.target.value)}
+                          placeholder={mat?.name || '품목명 입력'}
+                          className={cellInput}
+                        />
+                      </td>
+
+                      {/* 규격 */}
+                      <td className="px-2 py-2">
+                        {calc.isSteel ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={item.dimension_w}
+                              onChange={(e) => updateItem(index, 'dimension_w', e.target.value)}
+                              placeholder="W"
+                              min="0"
+                              className={`${cellInput} text-right w-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                            />
+                            <span className="text-muted-foreground">×</span>
+                            <input
+                              type="number"
+                              value={item.dimension_l}
+                              onChange={(e) => updateItem(index, 'dimension_l', e.target.value)}
+                              placeholder="L"
+                              min="0"
+                              className={`${cellInput} text-right w-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                            />
+                            <span className="text-muted-foreground">×</span>
+                            <input
+                              type="number"
+                              value={item.dimension_h}
+                              onChange={(e) => updateItem(index, 'dimension_h', e.target.value)}
+                              placeholder="H"
+                              min="0"
+                              className={`${cellInput} text-right w-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                            />
+                          </div>
+                        ) : mat?.specification ? (
+                          <span className="text-[11px] leading-8 block">{mat.specification}</span>
+                        ) : (
+                          <span className="text-muted-foreground leading-8 block">-</span>
+                        )}
+                      </td>
+
+                      {/* 수량 */}
+                      <td className="px-2 py-2">
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+                          placeholder="0"
+                          min="1"
+                          className={`${cellInput} text-right`}
+                        />
+                      </td>
+
+                      {/* 단위중량 */}
+                      <td className="px-2 py-2 text-right">
+                        {calc.isSteel && calc.pieceWeight > 0 ? (
+                          <span className="leading-8 block">{calc.pieceWeight.toFixed(3)} kg</span>
+                        ) : (
+                          <span className="text-muted-foreground leading-8 block">-</span>
+                        )}
+                      </td>
+
+                      {/* 총중량 */}
+                      <td className="px-2 py-2 text-right">
+                        {calc.isSteel && calc.totalWeight > 0 ? (
+                          <span className="leading-8 block font-medium">{calc.totalWeight.toFixed(2)} kg</span>
+                        ) : (
+                          <span className="text-muted-foreground leading-8 block">-</span>
+                        )}
+                      </td>
+
+                      {/* 사유 */}
+                      <td className="px-2 py-2">
+                        <input
+                          type="text"
+                          value={item.reason}
+                          onChange={(e) => updateItem(index, 'reason', e.target.value)}
+                          onKeyDown={(e) => handleRowKeyDown(e, index)}
+                          placeholder="요청 사유"
+                          className={cellInput}
+                        />
+                      </td>
+
+                      {/* 삭제 */}
+                      <td className="px-2 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          disabled={items.length <= 1}
+                          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="행 삭제"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="flex items-center gap-3">
           <button
             type="submit"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90"
+            disabled={isLoading || validItemCount === 0}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus size={16} />
-            요청 등록
+            {isLoading ? '등록 중...' : `요청 등록 (${validItemCount}건)`}
           </button>
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => window.history.back()}
             className="px-4 py-2 border border-input rounded-md text-sm hover:bg-accent"
           >
             취소

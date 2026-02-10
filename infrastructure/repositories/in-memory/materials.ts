@@ -6,7 +6,7 @@ import type {
   ISteelTagRepository,
 } from '@/domain/materials/ports';
 import type { Material, Stock, StockMovement, MaterialPrice, SteelTag } from '@/domain/materials/entities';
-import { generateId } from '@/domain/shared/types';
+import { generateId, type QueryRangeOptions } from '@/domain/shared/types';
 import {
   mockMaterials,
   mockStocks,
@@ -18,8 +18,10 @@ import {
 export class InMemoryMaterialRepository implements IMaterialRepository {
   private data: Material[] = [...mockMaterials];
 
-  async findAll(): Promise<Material[]> {
-    return this.data;
+  async findAll(options?: QueryRangeOptions): Promise<Material[]> {
+    if (!options?.limit) return this.data;
+    const from = options.offset ?? 0;
+    return this.data.slice(from, from + options.limit);
   }
 
   async findById(id: string): Promise<Material | null> {
@@ -48,12 +50,20 @@ export class InMemoryMaterialRepository implements IMaterialRepository {
 export class InMemoryStockRepository implements IStockRepository {
   private data: Stock[] = [...mockStocks];
 
-  async findAll(): Promise<Stock[]> {
-    return this.data;
+  async findAll(options?: QueryRangeOptions): Promise<Stock[]> {
+    if (!options?.limit) return this.data;
+    const from = options.offset ?? 0;
+    return this.data.slice(from, from + options.limit);
   }
 
   async findByMaterialId(materialId: string): Promise<Stock | null> {
     return this.data.find(s => s.material_id === materialId) ?? null;
+  }
+
+  async findByMaterialIds(materialIds: string[]): Promise<Stock[]> {
+    if (materialIds.length === 0) return [];
+    const materialIdSet = new Set(materialIds);
+    return this.data.filter((stock) => materialIdSet.has(stock.material_id));
   }
 
   async upsert(stock: Stock): Promise<Stock> {
@@ -65,13 +75,23 @@ export class InMemoryStockRepository implements IStockRepository {
     this.data.push(stock);
     return stock;
   }
+
+  async upsertMany(stocks: Stock[]): Promise<Stock[]> {
+    const result: Stock[] = [];
+    for (const stock of stocks) {
+      result.push(await this.upsert(stock));
+    }
+    return result;
+  }
 }
 
 export class InMemoryStockMovementRepository implements IStockMovementRepository {
   private data: StockMovement[] = [...mockStockMovements];
 
-  async findAll(): Promise<StockMovement[]> {
-    return this.data;
+  async findAll(options?: QueryRangeOptions): Promise<StockMovement[]> {
+    if (!options?.limit) return this.data;
+    const from = options.offset ?? 0;
+    return this.data.slice(from, from + options.limit);
   }
 
   async create(data: Omit<StockMovement, 'id' | 'created_at'>): Promise<StockMovement> {
@@ -80,13 +100,22 @@ export class InMemoryStockMovementRepository implements IStockMovementRepository
     this.data.push(movement);
     return movement;
   }
+
+  async createMany(data: Omit<StockMovement, 'id' | 'created_at'>[]): Promise<StockMovement[]> {
+    const now = new Date().toISOString();
+    const movements = data.map((item) => ({ ...item, id: generateId(), created_at: now }));
+    this.data.push(...movements);
+    return movements;
+  }
 }
 
 export class InMemoryMaterialPriceRepository implements IMaterialPriceRepository {
   private data: MaterialPrice[] = [...mockMaterialPrices];
 
-  async findAll(): Promise<MaterialPrice[]> {
-    return this.data;
+  async findAll(options?: QueryRangeOptions): Promise<MaterialPrice[]> {
+    if (!options?.limit) return this.data;
+    const from = options.offset ?? 0;
+    return this.data.slice(from, from + options.limit);
   }
 
   async findByMaterial(materialId: string): Promise<MaterialPrice[]> {
@@ -100,6 +129,13 @@ export class InMemoryMaterialPriceRepository implements IMaterialPriceRepository
     return price;
   }
 
+  async createMany(data: Omit<MaterialPrice, 'id' | 'created_at'>[]): Promise<MaterialPrice[]> {
+    const now = new Date().toISOString();
+    const prices = data.map((item) => ({ ...item, id: generateId(), created_at: now }));
+    this.data.push(...prices);
+    return prices;
+  }
+
   async delete(id: string): Promise<void> {
     this.data = this.data.filter(mp => mp.id !== id);
   }
@@ -108,8 +144,10 @@ export class InMemoryMaterialPriceRepository implements IMaterialPriceRepository
 export class InMemorySteelTagRepository implements ISteelTagRepository {
   private data: SteelTag[] = [...initialSteelTags];
 
-  async findAll(): Promise<SteelTag[]> {
-    return this.data;
+  async findAll(options?: QueryRangeOptions): Promise<SteelTag[]> {
+    if (!options?.limit) return this.data;
+    const from = options.offset ?? 0;
+    return this.data.slice(from, from + options.limit);
   }
 
   async findById(id: string): Promise<SteelTag | null> {

@@ -52,62 +52,77 @@ export class ReceivePurchaseOrderUseCase {
     const anyReceived = updatedItems.some(item => (item.received_quantity || 0) > 0);
     const newStatus = allReceived ? ('RECEIVED' as const) : anyReceived ? ('PARTIAL_RECEIVED' as const) : po.status;
 
-    const movements: StockMovement[] = [];
-    const updatedStocks: Stock[] = [];
-
-    const uniqueMaterialIds = [
-      ...new Set(
-        receivedItemEntries
-          .map(([itemId]) => poItemById.get(itemId)?.material_id)
-          .filter((materialId): materialId is string => Boolean(materialId)),
-      ),
-    ];
-    const stockEntries = await Promise.all(
-      uniqueMaterialIds.map(async (materialId) => {
-        const stock = await this.stockRepo.findByMaterialId(materialId);
-        return [materialId, stock] as const;
-      }),
-    );
-    const stockByMaterialId = new Map(stockEntries);
+    const movementInputs: Omit<StockMovement, 'id' | 'created_at'>[] = [];
+    const receivedByMaterialId = new Map<string, { quantity: number; totalAmount: number; unitPrice: number }>();
 
     for (const [itemId, receivedQty] of receivedItemEntries) {
       const poItem = poItemById.get(itemId);
       if (!poItem) continue;
 
-      const movement = await this.movementRepo.create({
+      movementInputs.push({
         material_id: poItem.material_id,
         type: 'IN',
         quantity: receivedQty,
         unit_price: poItem.unit_price,
         purchase_order_id: input.poId,
       });
-      movements.push(movement);
 
-      const existingStock = stockByMaterialId.get(poItem.material_id) ?? null;
-      let updatedStock: Stock;
+      const agg = receivedByMaterialId.get(poItem.material_id) ?? {
+        quantity: 0,
+        totalAmount: 0,
+        unitPrice: poItem.unit_price,
+      };
+      agg.quantity += receivedQty;
+      agg.totalAmount += receivedQty * poItem.unit_price;
+      agg.unitPrice = poItem.unit_price;
+      receivedByMaterialId.set(poItem.material_id, agg);
+    }
+
+    const movements = this.movementRepo.createMany
+      ? await this.movementRepo.createMany(movementInputs)
+      : await Promise.all(movementInputs.map((movementInput) => this.movementRepo.create(movementInput)));
+
+    const uniqueMaterialIds = [...receivedByMaterialId.keys()];
+    const existingStocks = this.stockRepo.findByMaterialIds
+      ? await this.stockRepo.findByMaterialIds(uniqueMaterialIds)
+      : await Promise.all(
+        uniqueMaterialIds.map(async (materialId) => this.stockRepo.findByMaterialId(materialId)),
+      ).then((stocks) => stocks.filter((stock): stock is Stock => Boolean(stock)));
+    const stockByMaterialId = new Map(
+      existingStocks.map((stock) => [stock.material_id, stock] as const),
+    );
+
+    const stockUpsertPayloads: Stock[] = uniqueMaterialIds.map((materialId) => {
+      const existingStock = stockByMaterialId.get(materialId) ?? null;
+      const agg = receivedByMaterialId.get(materialId);
+      if (!agg) {
+        throw new Error(`Received quantity aggregation is missing for material: ${materialId}`);
+      }
 
       if (existingStock) {
-        const newQty = existingStock.quantity + receivedQty;
+        const newQty = existingStock.quantity + agg.quantity;
         const newAvg =
-          (existingStock.quantity * existingStock.avg_unit_price + receivedQty * poItem.unit_price) / newQty;
-        updatedStock = await this.stockRepo.upsert({
+          (existingStock.quantity * existingStock.avg_unit_price + agg.totalAmount) / newQty;
+        return {
           ...existingStock,
           quantity: newQty,
           avg_unit_price: Math.round(newAvg),
           updated_at: now,
-        });
-      } else {
-        updatedStock = await this.stockRepo.upsert({
-          id: generateId(),
-          material_id: poItem.material_id,
-          quantity: receivedQty,
-          avg_unit_price: poItem.unit_price,
-          updated_at: now,
-        });
+        };
       }
-      stockByMaterialId.set(poItem.material_id, updatedStock);
-      updatedStocks.push(updatedStock);
-    }
+
+      return {
+        id: generateId(),
+        material_id: materialId,
+        quantity: agg.quantity,
+        avg_unit_price: Math.round(agg.totalAmount / agg.quantity),
+        updated_at: now,
+      };
+    });
+
+    const updatedStocks = this.stockRepo.upsertMany
+      ? await this.stockRepo.upsertMany(stockUpsertPayloads)
+      : await Promise.all(stockUpsertPayloads.map((stockPayload) => this.stockRepo.upsert(stockPayload)));
 
     const newPrices: MaterialPrice[] = [];
     const existingAllPrices = await this.priceRepo.findAll();
@@ -119,26 +134,33 @@ export class ReceivePurchaseOrderUseCase {
         latestPriceByMaterialSupplier.set(key, price);
       }
     }
-    const processedMaterialIds = new Set<string>();
+    const materialPriceInputs: Omit<MaterialPrice, 'id' | 'created_at'>[] = [];
+    for (const materialId of uniqueMaterialIds) {
+      const agg = receivedByMaterialId.get(materialId);
+      if (!agg) continue;
 
-    for (const [itemId] of receivedItemEntries) {
-      const poItem = poItemById.get(itemId);
-      if (!poItem) continue;
-      if (processedMaterialIds.has(poItem.material_id)) continue;
-      processedMaterialIds.add(poItem.material_id);
-
-      const latestPrice = latestPriceByMaterialSupplier.get(`${poItem.material_id}::${po.supplier_id}`);
-
-      if (!latestPrice || latestPrice.unit_price !== poItem.unit_price) {
-        const price = await this.priceRepo.create({
-          material_id: poItem.material_id,
+      const latestPrice = latestPriceByMaterialSupplier.get(`${materialId}::${po.supplier_id}`);
+      if (!latestPrice || latestPrice.unit_price !== agg.unitPrice) {
+        materialPriceInputs.push({
+          material_id: materialId,
           supplier_id: po.supplier_id,
-          unit_price: poItem.unit_price,
+          unit_price: agg.unitPrice,
           prev_price: latestPrice?.unit_price,
           effective_date: today,
           notes: `입고 자동 등록 (${po.po_no})`,
         });
-        newPrices.push(price);
+      }
+    }
+
+    if (materialPriceInputs.length > 0) {
+      if (this.priceRepo.createMany) {
+        const createdPrices = await this.priceRepo.createMany(materialPriceInputs);
+        newPrices.push(...createdPrices);
+      } else {
+        const createdPrices = await Promise.all(
+          materialPriceInputs.map((priceInput) => this.priceRepo.create(priceInput)),
+        );
+        newPrices.push(...createdPrices);
       }
     }
 

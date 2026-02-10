@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useERPStore } from '@/store';
 import { getSupplierRepository } from '@/infrastructure/di/container';
+import { useInitialHydration } from '@/hooks/admin/useInitialHydration';
 
 export function useSuppliers() {
   const suppliers = useERPStore((s) => s.suppliers);
@@ -10,6 +12,12 @@ export function useSuppliers() {
   const removeFromCache = useERPStore((s) => s.removeSupplierFromCache);
 
   const repo = getSupplierRepository();
+  const { hydrateResources, isResourceHydrated } = useInitialHydration();
+
+  useEffect(() => {
+    if (isResourceHydrated('suppliers')) return;
+    void hydrateResources([{ resource: 'suppliers' }]);
+  }, [hydrateResources, isResourceHydrated]);
 
   const addSupplier = async (data: Parameters<typeof repo.create>[0]) => {
     const supplier = await repo.create(data);

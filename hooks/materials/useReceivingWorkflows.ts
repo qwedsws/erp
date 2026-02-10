@@ -26,7 +26,10 @@ export function useReceivingWorkflows() {
   const { materials } = useMaterials();
   const { receivePurchaseOrder } = usePurchaseOrders();
   const { addSteelTag } = useSteelTags();
-  const { addStockMovement } = useStocks();
+  const { addStockMovement } = useStocks({
+    includeStocks: false,
+    includeMovements: false,
+  });
 
   const materialById = useMemo(
     () => new Map(materials.map((material) => [material.id, material])),

@@ -9,7 +9,7 @@ import { useSuppliers } from '@/hooks/procurement/useSuppliers';
 export type ReceivingTab = 'pending' | 'history';
 
 export function useReceivingPageData() {
-  const { stockMovements } = useStocks();
+  const { stockMovements } = useStocks({ includeStocks: false, includeMovements: true });
   const { materials } = useMaterials();
   const { purchaseOrders } = usePurchaseOrders();
   const { suppliers } = useSuppliers();

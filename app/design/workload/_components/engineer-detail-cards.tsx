@@ -3,12 +3,11 @@
 import React from 'react';
 import { Users } from 'lucide-react';
 import type { EngineerWorkload } from '@/hooks/design/useDesignWorkloadStats';
-import type { Profile } from '@/domain/shared/entities';
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
 interface EngineerDetailCardsProps {
-  engineers: Profile[];
+  engineers: EngineerWorkload['engineer'][];
   engineerWorkloads: EngineerWorkload[];
 }
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
+import { TablePagination } from '@/components/common/table-pagination';
 
 interface Column<T> {
   key: string;
@@ -16,6 +17,7 @@ interface DataTableProps<T> {
   searchPlaceholder?: string;
   searchKeys?: string[];
   onRowClick?: (item: T) => void;
+  pageSize?: number;
 }
 
 export function DataTable<T extends object>({
@@ -24,10 +26,12 @@ export function DataTable<T extends object>({
   searchPlaceholder = '검색...',
   searchKeys = [],
   onRowClick,
+  pageSize,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filtered = useMemo(() => {
     if (!search || searchKeys.length === 0) return data;
@@ -52,6 +56,18 @@ export function DataTable<T extends object>({
     });
   }, [filtered, sortKey, sortDir]);
 
+  const totalPages = useMemo(() => {
+    if (!pageSize) return 1;
+    return Math.max(1, Math.ceil(sorted.length / pageSize));
+  }, [sorted.length, pageSize]);
+  const page = Math.min(currentPage, totalPages);
+
+  const paged = useMemo(() => {
+    if (!pageSize) return sorted;
+    const start = (page - 1) * pageSize;
+    return sorted.slice(start, start + pageSize);
+  }, [page, pageSize, sorted]);
+
   const handleSort = (key: string) => {
     if (sortKey === key) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
@@ -59,6 +75,7 @@ export function DataTable<T extends object>({
       setSortKey(key);
       setSortDir('asc');
     }
+    setCurrentPage(1);
   };
 
   return (
@@ -70,7 +87,10 @@ export function DataTable<T extends object>({
             type="text"
             placeholder={searchPlaceholder}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full h-9 pl-9 pr-4 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -96,14 +116,14 @@ export function DataTable<T extends object>({
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
+            {paged.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-8 text-center text-muted-foreground">
                   데이터가 없습니다.
                 </td>
               </tr>
             ) : (
-              sorted.map((item, idx) => (
+              paged.map((item, idx) => (
                 <tr
                   key={idx}
                   className={`border-b border-border last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-muted/30' : ''}`}
@@ -120,9 +140,18 @@ export function DataTable<T extends object>({
           </tbody>
         </table>
       </div>
-      <div className="mt-2 text-xs text-muted-foreground">
-        총 {sorted.length}건
-      </div>
+      {pageSize ? (
+        <TablePagination
+          totalCount={sorted.length}
+          currentPage={page}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
+      ) : (
+        <div className="mt-2 text-xs text-muted-foreground">
+          총 {sorted.length}건
+        </div>
+      )}
     </div>
   );
 }

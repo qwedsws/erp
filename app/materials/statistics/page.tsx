@@ -30,7 +30,7 @@ function formatAmount(amount: number) {
 
 export default function MaterialsStatisticsPage() {
   const { materials } = useMaterials();
-  const { stocks, stockMovements } = useStocks();
+  const { stocks, stockMovements } = useStocks({ includeMovements: true });
   const { purchaseOrders } = usePurchaseOrders();
   const { suppliers } = useSuppliers();
 

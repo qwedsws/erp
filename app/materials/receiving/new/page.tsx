@@ -12,17 +12,9 @@ import { usePurchaseOrders } from '@/hooks/procurement/usePurchaseOrders';
 import { useSteelTags } from '@/hooks/procurement/useSteelTags';
 import { useReceivingWorkflows } from '@/hooks/materials/useReceivingWorkflows';
 import { useSteelTagAutoGeneration } from '@/hooks/materials/useSteelTagAutoGeneration';
+import type { ReceiveItemForm } from '@/hooks/materials/receiving-types';
 import { POReceivingSection } from './_components/po-receiving-section';
 import { DirectReceivingSection } from './_components/direct-receiving-section';
-
-export interface ReceiveItemForm {
-  id: string;
-  material_id: string;
-  quantity: number;
-  received_quantity: number;
-  receiveQty: number;
-  unit_price: number;
-}
 
 export default function NewReceivingPage() {
   return (
