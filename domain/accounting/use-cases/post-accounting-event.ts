@@ -124,6 +124,7 @@ export class PostAccountingEventUseCase {
           });
         } catch {
           // Ignore secondary failure while marking ERROR.
+          // TODO: Full DB transaction requires Supabase RPC — partial journal/AR/AP writes may remain
         }
       }
       return failure(err instanceof Error ? err : new Error(String(err)));

@@ -7,18 +7,10 @@ import type {
   WorkLog,
   Machine,
   Profile,
-  Supplier,
-  Material,
-  Stock,
-  StockMovement,
-  PurchaseOrder,
   QualityInspection,
   Tryout,
   Defect,
   Payment,
-  MaterialPrice,
-  PurchaseRequest,
-  SteelTag,
 } from '@/domain/shared/entities';
 
 export const mockProfiles: Profile[] = [
@@ -107,79 +99,6 @@ export const mockMachines: Machine[] = [
   { id: 'm5', machine_code: 'GRD-001', name: '연마기 1호기', type: 'GRINDING', manufacturer: '오카모토', model: 'PSG-63DX', status: 'IDLE', location: 'B동 2라인', hourly_rate: 50000, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
 ];
 
-// --- Materials & Procurement Mock Data ---
-
-export const mockSuppliers: Supplier[] = [
-  { id: 'sup1', name: '(주)대한특수강', business_no: '111-22-33333', contact_person: '김철강', phone: '031-111-2222', email: 'steel@daehan.com', address: '경기도 시흥시 공단1대로 100', supplier_type: 'MATERIAL', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'sup2', name: '미스미코리아(주)', business_no: '222-33-44444', contact_person: '이부품', phone: '02-222-3333', email: 'order@misumi.kr', address: '서울특별시 금천구 가산디지털1로 100', supplier_type: 'MATERIAL', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'sup3', name: '(주)삼진열처리', business_no: '333-44-55555', contact_person: '박열처', phone: '031-333-4444', email: 'ht@samjin.com', address: '경기도 안산시 단원구 산단로 200', supplier_type: 'OUTSOURCE', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'sup4', name: '유도(주)', business_no: '444-55-66666', contact_person: '최핫러너', phone: '031-444-5555', email: 'sales@yudo.com', address: '경기도 화성시 동탄기흥로 500', supplier_type: 'MATERIAL', created_at: '2024-03-01T00:00:00Z', updated_at: '2024-03-01T00:00:00Z' },
-];
-
-export const mockMaterials: Material[] = [
-  // STEEL — 이중 단위 (구매: KG, 재고: EA 태그)
-  { id: 'mat1', material_code: 'STL-NAK80-001', name: 'NAK80 강재', category: 'STEEL', specification: '400x300x350mm', unit: 'KG', inventory_unit: 'EA', unit_price: 2500000, safety_stock: 2, lead_time: 7, supplier_id: 'sup1', steel_grade: 'NAK80', density: 7.85, dimension_w: 400, dimension_l: 300, dimension_h: 350, weight: 329.7, price_per_kg: 7584, weight_method: 'MEASURED', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'mat2', material_code: 'STL-SKD11-001', name: 'SKD11 강재', category: 'STEEL', specification: '500x400x300mm', unit: 'KG', inventory_unit: 'EA', unit_price: 3200000, safety_stock: 1, lead_time: 10, supplier_id: 'sup1', steel_grade: 'SKD11', density: 7.70, dimension_w: 500, dimension_l: 400, dimension_h: 300, weight: 462.0, price_per_kg: 6926, weight_method: 'MEASURED', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'mat3', material_code: 'STL-SKD61-001', name: 'SKD61 강재', category: 'STEEL', specification: '600x500x350mm', unit: 'KG', inventory_unit: 'EA', unit_price: 4100000, safety_stock: 1, lead_time: 10, supplier_id: 'sup1', steel_grade: 'SKD61', density: 7.76, dimension_w: 600, dimension_l: 500, dimension_h: 350, weight: 814.8, price_per_kg: 5032, weight_method: 'CALCULATED', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  // STANDARD_PART
-  { id: 'mat4', material_code: 'STP-EP-001', name: '이젝터 핀 세트', category: 'STANDARD_PART', specification: 'Φ3~Φ10 혼합 50pcs', unit: 'SET', unit_price: 350000, safety_stock: 5, lead_time: 3, supplier_id: 'sup2', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'mat5', material_code: 'STP-GP-001', name: '가이드 핀/부시 세트', category: 'STANDARD_PART', specification: 'Φ20x100 4set', unit: 'SET', unit_price: 280000, safety_stock: 3, lead_time: 3, supplier_id: 'sup2', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'mat6', material_code: 'STP-SPR-001', name: '리턴 스프링', category: 'STANDARD_PART', specification: 'Φ25x50 10pcs', unit: 'SET', unit_price: 120000, safety_stock: 10, lead_time: 2, supplier_id: 'sup2', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  // PURCHASED
-  { id: 'mat7', material_code: 'PUR-HR-001', name: '핫러너 시스템', category: 'PURCHASED', specification: '2-drop valve gate', unit: 'SET', unit_price: 8500000, safety_stock: 0, lead_time: 21, supplier_id: 'sup4', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  // CONSUMABLE
-  { id: 'mat8', material_code: 'CON-CUT-001', name: '와이어 (황동)', category: 'CONSUMABLE', specification: 'Φ0.25mm 10kg', unit: 'ROLL', unit_price: 180000, safety_stock: 5, lead_time: 2, supplier_id: 'sup2', min_order_qty: 5, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  // TOOL — 공구 신규
-  { id: 'mat9', material_code: 'TL-EM-010', name: '초경 엔드밀 Φ10', category: 'TOOL', specification: 'Φ10 × 75L 4날', unit: 'EA', unit_price: 45000, safety_stock: 10, lead_time: 3, supplier_id: 'sup2', tool_type: 'END_MILL', tool_diameter: 10, tool_length: 75, max_usage_count: 500, regrind_max: 3, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'mat10', material_code: 'TL-DR-085', name: 'HSS 드릴 Φ8.5', category: 'TOOL', specification: 'Φ8.5 × 117L', unit: 'EA', unit_price: 12000, safety_stock: 20, lead_time: 2, supplier_id: 'sup2', tool_type: 'DRILL', tool_diameter: 8.5, tool_length: 117, max_usage_count: 200, regrind_max: 5, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'mat11', material_code: 'TL-EDM-CU-01', name: '동 전극 (커넥터 리브)', category: 'TOOL', specification: '가공용 동 전극', unit: 'EA', unit_price: 85000, safety_stock: 0, lead_time: 5, supplier_id: 'sup1', tool_type: 'ELECTRODE', max_usage_count: 50, regrind_max: 0, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'mat12', material_code: 'TL-INS-CNMG', name: 'CNMG 인서트 (선반용)', category: 'TOOL', specification: 'CNMG120408 VP15TF', unit: 'EA', unit_price: 8500, safety_stock: 30, lead_time: 3, supplier_id: 'sup2', tool_type: 'INSERT', max_usage_count: 100, regrind_max: 0, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  // CONSUMABLE — 소모품 신규
-  { id: 'mat13', material_code: 'CON-OIL-001', name: '수용성 절삭유', category: 'CONSUMABLE', specification: '20L 드럼', unit: 'L', unit_price: 5500, safety_stock: 40, lead_time: 2, supplier_id: 'sup2', min_order_qty: 20, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'mat14', material_code: 'CON-FIL-001', name: '오일미스트 필터', category: 'CONSUMABLE', specification: '300×300×50mm HEPA', unit: 'EA', unit_price: 35000, safety_stock: 5, lead_time: 5, supplier_id: 'sup2', min_order_qty: 5, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  // STEEL — AL6061 알루미늄 (v2: 치수 없이 강종 마스터만 등록)
-  { id: 'mat15', material_code: 'STL-AL6061', name: 'AL6061 알루미늄', category: 'STEEL', specification: '알루미늄 합금 6061', unit: 'KG', inventory_unit: 'EA', safety_stock: 5, lead_time: 5, supplier_id: 'sup1', steel_grade: 'AL6061', density: 2.71, price_per_kg: 12000, weight_method: 'MEASURED', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-];
-
-export const mockStocks: Stock[] = [
-  { id: 'stk1', material_id: 'mat1', location_code: 'A-1-01', quantity: 3, avg_unit_price: 2500000, updated_at: '2026-01-28T00:00:00Z' },
-  { id: 'stk2', material_id: 'mat2', location_code: 'A-1-02', quantity: 1, avg_unit_price: 3200000, updated_at: '2026-01-15T00:00:00Z' },
-  { id: 'stk3', material_id: 'mat3', location_code: 'A-1-03', quantity: 0, avg_unit_price: 4100000, updated_at: '2026-01-01T00:00:00Z' },
-  { id: 'stk4', material_id: 'mat4', location_code: 'B-2-01', quantity: 8, avg_unit_price: 350000, updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'stk5', material_id: 'mat5', location_code: 'B-2-02', quantity: 4, avg_unit_price: 280000, updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'stk6', material_id: 'mat6', location_code: 'B-2-03', quantity: 12, avg_unit_price: 120000, updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'stk7', material_id: 'mat7', location_code: 'C-1-01', quantity: 0, avg_unit_price: 8500000, updated_at: '2026-01-01T00:00:00Z' },
-  { id: 'stk8', material_id: 'mat8', location_code: 'B-3-01', quantity: 3, avg_unit_price: 180000, updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'stk9', material_id: 'mat9', location_code: 'D-1-01', quantity: 15, avg_unit_price: 45000, updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'stk10', material_id: 'mat10', location_code: 'D-1-02', quantity: 25, avg_unit_price: 12000, updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'stk11', material_id: 'mat11', location_code: 'D-2-01', quantity: 2, avg_unit_price: 85000, updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'stk12', material_id: 'mat12', location_code: 'D-1-03', quantity: 40, avg_unit_price: 8500, updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'stk13', material_id: 'mat13', location_code: 'E-1-01', quantity: 60, avg_unit_price: 5500, updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'stk14', material_id: 'mat14', location_code: 'E-1-02', quantity: 8, avg_unit_price: 35000, updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'stk15', material_id: 'mat15', location_code: 'A-3-01', quantity: 5, avg_unit_price: 0, updated_at: '2026-02-10T00:00:00Z' },
-];
-
-export const mockStockMovements: StockMovement[] = [
-  { id: 'sm1', material_id: 'mat1', type: 'IN', quantity: 2, unit_price: 2500000, purchase_order_id: 'po1', created_by: 'p4', created_at: '2026-01-20T00:00:00Z' },
-  { id: 'sm2', material_id: 'mat1', type: 'OUT', quantity: 1, unit_price: 2500000, project_id: 'pj1', reason: 'PJ-2026-001 자재 출고', created_by: 'p4', created_at: '2026-01-25T00:00:00Z' },
-  { id: 'sm3', material_id: 'mat4', type: 'IN', quantity: 10, unit_price: 350000, purchase_order_id: 'po2', created_by: 'p4', created_at: '2026-01-28T00:00:00Z' },
-  { id: 'sm4', material_id: 'mat4', type: 'OUT', quantity: 2, unit_price: 350000, project_id: 'pj1', reason: 'PJ-2026-001 이젝터 핀 출고', created_by: 'p4', created_at: '2026-02-01T00:00:00Z' },
-  { id: 'sm5', material_id: 'mat8', type: 'IN', quantity: 5, unit_price: 180000, purchase_order_id: 'po2', created_by: 'p4', created_at: '2026-01-28T00:00:00Z' },
-  { id: 'sm6', material_id: 'mat8', type: 'OUT', quantity: 2, unit_price: 180000, project_id: 'pj1', reason: '와이어 가공용 출고', created_by: 'p4', created_at: '2026-02-03T00:00:00Z' },
-];
-
-export const mockPurchaseOrders: PurchaseOrder[] = [
-  { id: 'po1', po_no: 'PO-2026-001', supplier_id: 'sup1', status: 'RECEIVED', order_date: '2026-01-15', due_date: '2026-01-22', total_amount: 5000000, items: [{ id: 'poi1', material_id: 'mat1', quantity: 2, unit_price: 2500000, received_quantity: 2 }], created_by: 'p4', created_at: '2026-01-15T00:00:00Z', updated_at: '2026-01-22T00:00:00Z' },
-  { id: 'po2', po_no: 'PO-2026-002', supplier_id: 'sup2', status: 'RECEIVED', order_date: '2026-01-20', due_date: '2026-01-25', total_amount: 4400000, items: [{ id: 'poi2', material_id: 'mat4', quantity: 10, unit_price: 350000, received_quantity: 10 }, { id: 'poi3', material_id: 'mat8', quantity: 5, unit_price: 180000, received_quantity: 5 }], created_by: 'p4', created_at: '2026-01-20T00:00:00Z', updated_at: '2026-01-28T00:00:00Z' },
-  { id: 'po3', po_no: 'PO-2026-003', supplier_id: 'sup4', status: 'ORDERED', order_date: '2026-02-01', due_date: '2026-02-22', total_amount: 8500000, items: [{ id: 'poi4', material_id: 'mat7', quantity: 1, unit_price: 8500000 }], created_by: 'p4', created_at: '2026-02-01T00:00:00Z', updated_at: '2026-02-01T00:00:00Z' },
-  { id: 'po4', po_no: 'PO-2026-004', supplier_id: 'sup1', status: 'DRAFT', order_date: '2026-02-08', due_date: '2026-02-18', total_amount: 7300000, items: [{ id: 'poi5', material_id: 'mat2', quantity: 1, unit_price: 3200000 }, { id: 'poi6', material_id: 'mat3', quantity: 1, unit_price: 4100000 }], created_by: 'p4', created_at: '2026-02-08T00:00:00Z', updated_at: '2026-02-08T00:00:00Z' },
-  { id: 'po5', po_no: 'PO-2026-005', supplier_id: 'sup1', status: 'ORDERED', order_date: '2026-02-10', due_date: '2026-02-20', total_amount: 5658480, items: [
-    { id: 'poi7', material_id: 'mat15', quantity: 3, unit_price: 1365840, dimension_w: 400, dimension_l: 300, dimension_h: 350, piece_weight: 113.82, total_weight: 341.46 },
-    { id: 'poi8', material_id: 'mat15', quantity: 2, unit_price: 487800, dimension_w: 500, dimension_l: 200, dimension_h: 150, piece_weight: 40.65, total_weight: 81.30 },
-    { id: 'poi9', material_id: 'mat15', quantity: 1, unit_price: 585360, dimension_w: 300, dimension_l: 300, dimension_h: 200, piece_weight: 48.78, total_weight: 48.78 },
-  ], created_by: 'p4', created_at: '2026-02-10T00:00:00Z', updated_at: '2026-02-10T00:00:00Z' },
-];
-
 // --- Quality Mock Data ---
 
 export const mockInspections: QualityInspection[] = [
@@ -215,69 +134,3 @@ export const mockPayments: Payment[] = [
   { id: 'pay8', order_id: 'o6', payment_type: 'BALANCE', amount: 31200000, payment_date: '2025-12-20', payment_method: 'BANK_TRANSFER', status: 'CONFIRMED', confirmed_by: 'p2', notes: '잔금 40%', created_at: '2025-12-20T00:00:00Z', updated_at: '2025-12-20T00:00:00Z' },
 ];
 
-// 공급처별 단가 및 단가 변경 이력
-export const mockMaterialPrices: MaterialPrice[] = [
-  // NAK80 강재 (mat1) - 대한특수강(sup1) 단가 이력
-  { id: 'mp1', material_id: 'mat1', supplier_id: 'sup1', unit_price: 2200000, effective_date: '2024-01-01', notes: '신규 계약', created_at: '2024-01-01T00:00:00Z' },
-  { id: 'mp2', material_id: 'mat1', supplier_id: 'sup1', unit_price: 2350000, prev_price: 2200000, effective_date: '2024-07-01', notes: '원자재 가격 인상 반영', created_at: '2024-07-01T00:00:00Z' },
-  { id: 'mp3', material_id: 'mat1', supplier_id: 'sup1', unit_price: 2500000, prev_price: 2350000, effective_date: '2025-01-01', notes: '연간 단가 협상', created_at: '2025-01-01T00:00:00Z' },
-  // NAK80 강재 (mat1) - 다른 공급처 비교용 (가상)
-  { id: 'mp4', material_id: 'mat1', supplier_id: 'sup4', unit_price: 2650000, effective_date: '2025-03-01', notes: '스팟 견적', created_at: '2025-03-01T00:00:00Z' },
-
-  // SKD11 강재 (mat2) - 대한특수강(sup1) 단가 이력
-  { id: 'mp5', material_id: 'mat2', supplier_id: 'sup1', unit_price: 2800000, effective_date: '2024-01-01', notes: '신규 계약', created_at: '2024-01-01T00:00:00Z' },
-  { id: 'mp6', material_id: 'mat2', supplier_id: 'sup1', unit_price: 3000000, prev_price: 2800000, effective_date: '2024-07-01', notes: '원자재 가격 인상', created_at: '2024-07-01T00:00:00Z' },
-  { id: 'mp7', material_id: 'mat2', supplier_id: 'sup1', unit_price: 3200000, prev_price: 3000000, effective_date: '2025-01-01', notes: '연간 단가 조정', created_at: '2025-01-01T00:00:00Z' },
-
-  // SKD61 강재 (mat3) - 대한특수강(sup1) 단가 이력
-  { id: 'mp8', material_id: 'mat3', supplier_id: 'sup1', unit_price: 3800000, effective_date: '2024-01-01', notes: '신규 계약', created_at: '2024-01-01T00:00:00Z' },
-  { id: 'mp9', material_id: 'mat3', supplier_id: 'sup1', unit_price: 4100000, prev_price: 3800000, effective_date: '2025-01-01', notes: '연간 단가 조정', created_at: '2025-01-01T00:00:00Z' },
-
-  // 이젝터 핀 (mat4) - 미스미(sup2) 단가 이력
-  { id: 'mp10', material_id: 'mat4', supplier_id: 'sup2', unit_price: 320000, effective_date: '2024-01-01', notes: '계약 단가', created_at: '2024-01-01T00:00:00Z' },
-  { id: 'mp11', material_id: 'mat4', supplier_id: 'sup2', unit_price: 350000, prev_price: 320000, effective_date: '2025-04-01', notes: '환율 변동 반영', created_at: '2025-04-01T00:00:00Z' },
-  // 이젝터 핀 (mat4) - 유도(sup4) 대체 공급
-  { id: 'mp12', material_id: 'mat4', supplier_id: 'sup4', unit_price: 380000, effective_date: '2025-06-01', notes: '대체 공급 견적', created_at: '2025-06-01T00:00:00Z' },
-
-  // 가이드 핀/부시 (mat5) - 미스미(sup2)
-  { id: 'mp13', material_id: 'mat5', supplier_id: 'sup2', unit_price: 260000, effective_date: '2024-01-01', notes: '계약 단가', created_at: '2024-01-01T00:00:00Z' },
-  { id: 'mp14', material_id: 'mat5', supplier_id: 'sup2', unit_price: 280000, prev_price: 260000, effective_date: '2025-04-01', notes: '환율 변동 반영', created_at: '2025-04-01T00:00:00Z' },
-
-  // 리턴 스프링 (mat6) - 미스미(sup2)
-  { id: 'mp15', material_id: 'mat6', supplier_id: 'sup2', unit_price: 110000, effective_date: '2024-01-01', notes: '계약 단가', created_at: '2024-01-01T00:00:00Z' },
-  { id: 'mp16', material_id: 'mat6', supplier_id: 'sup2', unit_price: 120000, prev_price: 110000, effective_date: '2025-06-01', notes: '단가 조정', created_at: '2025-06-01T00:00:00Z' },
-
-  // 핫러너 시스템 (mat7) - 유도(sup4)
-  { id: 'mp17', material_id: 'mat7', supplier_id: 'sup4', unit_price: 7800000, effective_date: '2024-01-01', notes: '신규 계약', created_at: '2024-01-01T00:00:00Z' },
-  { id: 'mp18', material_id: 'mat7', supplier_id: 'sup4', unit_price: 8200000, prev_price: 7800000, effective_date: '2024-10-01', notes: '사양 업그레이드 반영', created_at: '2024-10-01T00:00:00Z' },
-  { id: 'mp19', material_id: 'mat7', supplier_id: 'sup4', unit_price: 8500000, prev_price: 8200000, effective_date: '2025-03-01', notes: '연간 단가 조정', created_at: '2025-03-01T00:00:00Z' },
-
-  // 와이어 황동 (mat8) - 미스미(sup2)
-  { id: 'mp20', material_id: 'mat8', supplier_id: 'sup2', unit_price: 160000, effective_date: '2024-01-01', notes: '계약 단가', created_at: '2024-01-01T00:00:00Z' },
-  { id: 'mp21', material_id: 'mat8', supplier_id: 'sup2', unit_price: 175000, prev_price: 160000, effective_date: '2024-09-01', notes: '구리 시세 인상', created_at: '2024-09-01T00:00:00Z' },
-  { id: 'mp22', material_id: 'mat8', supplier_id: 'sup2', unit_price: 180000, prev_price: 175000, effective_date: '2025-02-01', notes: '분기 조정', created_at: '2025-02-01T00:00:00Z' },
-];
-
-export const mockPurchaseRequests: PurchaseRequest[] = [
-  { id: 'pr1', pr_no: 'PR-2026-001', material_id: 'mat1', quantity: 3, required_date: '2026-02-20', reason: '커넥터 하우징 금형 제작용 NAK80 필요', requested_by: 'p4', status: 'APPROVED', approved_by: 'p1', approved_at: '2026-01-20T10:00:00Z', created_at: '2026-01-18T09:00:00Z', updated_at: '2026-01-20T10:00:00Z' },
-  { id: 'pr2', pr_no: 'PR-2026-002', material_id: 'mat4', quantity: 50, required_date: '2026-02-15', reason: '이젝터 핀 재고 부족 보충', requested_by: 'p5', status: 'CONVERTED', approved_by: 'p1', approved_at: '2026-01-22T14:00:00Z', po_id: 'po1', created_at: '2026-01-21T11:00:00Z', updated_at: '2026-01-23T09:00:00Z' },
-  { id: 'pr3', pr_no: 'PR-2026-003', material_id: 'mat7', quantity: 1, required_date: '2026-03-10', reason: '배터리 케이스 금형 핫러너 시스템 필요', requested_by: 'p4', status: 'PENDING', created_at: '2026-02-05T08:30:00Z', updated_at: '2026-02-05T08:30:00Z' },
-  { id: 'pr4', pr_no: 'PR-2026-004', material_id: 'mat2', quantity: 2, required_date: '2026-03-01', reason: 'SKD11 안전재고 미달', requested_by: 'p5', status: 'PENDING', created_at: '2026-02-06T10:00:00Z', updated_at: '2026-02-06T10:00:00Z' },
-  { id: 'pr5', pr_no: 'PR-2026-005', material_id: 'mat8', quantity: 20, required_date: '2026-02-28', reason: '와이어 가공 소모품 보충', requested_by: 'p6', status: 'REJECTED', reject_reason: '현재 재고 충분, 다음 달 재검토', approved_by: 'p1', approved_at: '2026-02-08T11:00:00Z', created_at: '2026-02-07T09:00:00Z', updated_at: '2026-02-08T11:00:00Z' },
-  { id: 'pr6', pr_no: 'PR-2026-006', material_id: 'mat5', quantity: 30, required_date: '2026-03-15', reason: '가이드 핀/부시 정기 보충', requested_by: 'p4', status: 'DRAFT', created_at: '2026-02-09T08:00:00Z', updated_at: '2026-02-09T08:00:00Z' },
-];
-
-// Steel Tags — 강재 개별 태그 추적
-export const initialSteelTags: SteelTag[] = [
-  { id: 'stag1', material_id: 'mat1', tag_no: 'NAK80-2601-001', weight: 328.5, status: 'IN_USE', project_id: 'pj1', location: 'MCT-1', received_at: '2026-01-15', issued_at: '2026-01-20', dimension_w: 400, dimension_l: 300, dimension_h: 350, created_at: '2026-01-15T00:00:00Z', updated_at: '2026-01-20T00:00:00Z' },
-  { id: 'stag2', material_id: 'mat1', tag_no: 'NAK80-2601-002', weight: 330.1, status: 'AVAILABLE', location: 'A-1-3', received_at: '2026-01-15', dimension_w: 400, dimension_l: 300, dimension_h: 350, created_at: '2026-01-15T00:00:00Z', updated_at: '2026-01-15T00:00:00Z' },
-  { id: 'stag3', material_id: 'mat2', tag_no: 'SKD11-2601-001', weight: 460.8, status: 'USED', project_id: 'pj2', received_at: '2026-01-10', issued_at: '2026-01-12', dimension_w: 500, dimension_l: 400, dimension_h: 300, created_at: '2026-01-10T00:00:00Z', updated_at: '2026-01-18T00:00:00Z' },
-  { id: 'stag4', material_id: 'mat2', tag_no: 'SKD11-2602-001', weight: 463.2, status: 'AVAILABLE', location: 'A-2-1', received_at: '2026-02-03', dimension_w: 500, dimension_l: 400, dimension_h: 300, created_at: '2026-02-03T00:00:00Z', updated_at: '2026-02-03T00:00:00Z' },
-  { id: 'stag5', material_id: 'mat3', tag_no: 'SKD61-2601-001', weight: 813.5, status: 'ALLOCATED', project_id: 'pj3', location: 'B-1-2', received_at: '2026-01-20', dimension_w: 600, dimension_l: 500, dimension_h: 350, created_at: '2026-01-20T00:00:00Z', updated_at: '2026-02-01T00:00:00Z' },
-  // AL6061 태그 (PO-2026-005 입고)
-  { id: 'stag6', material_id: 'mat15', tag_no: 'AL6061-2602-001', weight: 113.5, status: 'AVAILABLE' as const, purchase_order_id: 'po5', po_item_id: 'poi7', location: 'A-3-1', dimension_w: 400, dimension_l: 300, dimension_h: 350, received_at: '2026-02-12', created_at: '2026-02-12T00:00:00Z', updated_at: '2026-02-12T00:00:00Z' },
-  { id: 'stag7', material_id: 'mat15', tag_no: 'AL6061-2602-002', weight: 114.1, status: 'AVAILABLE' as const, purchase_order_id: 'po5', po_item_id: 'poi7', location: 'A-3-2', dimension_w: 400, dimension_l: 300, dimension_h: 350, received_at: '2026-02-12', created_at: '2026-02-12T00:00:00Z', updated_at: '2026-02-12T00:00:00Z' },
-  { id: 'stag8', material_id: 'mat15', tag_no: 'AL6061-2602-003', weight: 40.3, status: 'ALLOCATED' as const, project_id: 'pj3', purchase_order_id: 'po5', po_item_id: 'poi8', location: 'B-2-1', dimension_w: 500, dimension_l: 200, dimension_h: 150, received_at: '2026-02-12', created_at: '2026-02-12T00:00:00Z', updated_at: '2026-02-12T00:00:00Z' },
-  { id: 'stag9', material_id: 'mat15', tag_no: 'AL6061-2602-004', weight: 41.0, status: 'AVAILABLE' as const, purchase_order_id: 'po5', po_item_id: 'poi8', location: 'B-2-2', dimension_w: 500, dimension_l: 200, dimension_h: 150, received_at: '2026-02-12', created_at: '2026-02-12T00:00:00Z', updated_at: '2026-02-12T00:00:00Z' },
-  { id: 'stag10', material_id: 'mat15', tag_no: 'AL6061-2602-005', weight: 48.5, status: 'AVAILABLE' as const, purchase_order_id: 'po5', po_item_id: 'poi9', location: 'B-2-3', dimension_w: 300, dimension_l: 300, dimension_h: 200, received_at: '2026-02-12', created_at: '2026-02-12T00:00:00Z', updated_at: '2026-02-12T00:00:00Z' },
-];

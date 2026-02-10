@@ -8,18 +8,13 @@ import type {
 } from '@/domain/materials/ports';
 import type { Material, Stock, StockMovement, MaterialPrice, SteelTag } from '@/domain/materials/entities';
 import { generateId, type QueryRangeOptions, type MaterialPageQuery, type PageResult, type InventoryStats } from '@/domain/shared/types';
-import {
-  mockMaterials,
-  mockStocks,
-  mockStockMovements,
-  mockMaterialPrices,
-  initialSteelTags,
-} from '@/lib/mock-data';
-
-const inMemoryStockState: Stock[] = [...mockStocks];
+const inMemoryStockState: Stock[] = [];
+const inMemoryMovementState: StockMovement[] = [];
+const inMemoryPriceState: MaterialPrice[] = [];
+const inMemoryTagState: SteelTag[] = [];
 
 export class InMemoryMaterialRepository implements IMaterialRepository {
-  private data: Material[] = [...mockMaterials];
+  private data: Material[] = [];
 
   async findAll(options?: QueryRangeOptions): Promise<Material[]> {
     if (!options?.limit) return this.data;
@@ -92,8 +87,32 @@ export class InMemoryMaterialRepository implements IMaterialRepository {
   }
 
   async checkDependencies(id: string): Promise<MaterialDependencies> {
-    void id;
-    return { hasDependencies: false, totalCount: 0, items: [] };
+    const items: import('@/domain/materials/ports').MaterialDependencyItem[] = [];
+
+    const stocks = inMemoryStockState.filter(s => s.material_id === id);
+    if (stocks.length > 0) {
+      items.push({ type: 'stock', label: '재고', count: stocks.length, samples: [] });
+    }
+
+    const movements = inMemoryMovementState.filter(m => m.material_id === id);
+    if (movements.length > 0) {
+      const samples = movements.slice(0, 5).map(m => `${m.type} ${m.quantity}`);
+      items.push({ type: 'stock_movement', label: '재고이동', count: movements.length, samples });
+    }
+
+    const prices = inMemoryPriceState.filter(p => p.material_id === id);
+    if (prices.length > 0) {
+      items.push({ type: 'material_price', label: '가격이력', count: prices.length, samples: [] });
+    }
+
+    const tags = inMemoryTagState.filter(t => t.material_id === id);
+    if (tags.length > 0) {
+      const samples = tags.slice(0, 5).map(t => t.tag_no);
+      items.push({ type: 'steel_tag', label: '강재태그', count: tags.length, samples });
+    }
+
+    const totalCount = items.reduce((sum, item) => sum + item.count, 0);
+    return { hasDependencies: totalCount > 0, totalCount, items };
   }
 }
 
@@ -136,7 +155,7 @@ export class InMemoryStockRepository implements IStockRepository {
 }
 
 export class InMemoryStockMovementRepository implements IStockMovementRepository {
-  private data: StockMovement[] = [...mockStockMovements];
+  private data: StockMovement[] = inMemoryMovementState;
 
   async findAll(options?: QueryRangeOptions): Promise<StockMovement[]> {
     if (!options?.limit) return this.data;
@@ -160,7 +179,7 @@ export class InMemoryStockMovementRepository implements IStockMovementRepository
 }
 
 export class InMemoryMaterialPriceRepository implements IMaterialPriceRepository {
-  private data: MaterialPrice[] = [...mockMaterialPrices];
+  private data: MaterialPrice[] = inMemoryPriceState;
 
   async findAll(options?: QueryRangeOptions): Promise<MaterialPrice[]> {
     if (!options?.limit) return this.data;
@@ -203,7 +222,7 @@ export class InMemoryMaterialPriceRepository implements IMaterialPriceRepository
 }
 
 export class InMemorySteelTagRepository implements ISteelTagRepository {
-  private data: SteelTag[] = [...initialSteelTags];
+  private data: SteelTag[] = inMemoryTagState;
 
   async findAll(options?: QueryRangeOptions): Promise<SteelTag[]> {
     if (!options?.limit) return this.data;

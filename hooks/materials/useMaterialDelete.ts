@@ -6,30 +6,57 @@ import { useERPStore } from '@/store';
 import type { Material } from '@/domain/materials/entities';
 import type { MaterialDependencies } from '@/domain/materials/ports';
 
-export function useMaterialDelete(options?: { onDeleted?: () => void; onError?: (message: string) => void }) {
+export interface BlockedItem {
+  material: Material;
+  dependencies: MaterialDependencies;
+}
+
+export function useMaterialDelete(options?: { onDeleted?: (count: number) => void; onError?: (message: string) => void }) {
   const removeFromCache = useERPStore((s) => s.removeMaterialFromCache);
 
-  const [deleteTarget, setDeleteTarget] = useState<Material | null>(null);
-  const [dependencies, setDependencies] = useState<MaterialDependencies | null>(null);
+  const [deleteTargets, setDeleteTargets] = useState<Material[]>([]);
+  const [blockedItems, setBlockedItems] = useState<BlockedItem[]>([]);
+  const [deletableTargets, setDeletableTargets] = useState<Material[]>([]);
   const [isChecking, setIsChecking] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isDependencyModalOpen, setIsDependencyModalOpen] = useState(false);
 
-  const requestDelete = useCallback(async (material: Material) => {
-    setDeleteTarget(material);
+  const requestDelete = useCallback(async (input: Material | Material[]) => {
+    const materials = Array.isArray(input) ? input : [input];
+    if (materials.length === 0) return;
+
+    setDeleteTargets(materials);
     setIsChecking(true);
     try {
       const repo = getMaterialRepository();
-      const deps = await repo.checkDependencies(material.id);
-      setDependencies(deps);
-      if (deps.hasDependencies) {
+      const results = await Promise.all(
+        materials.map(async (m) => {
+          const deps = await repo.checkDependencies(m.id);
+          return { material: m, deps };
+        }),
+      );
+
+      const blocked: BlockedItem[] = [];
+      const deletable: Material[] = [];
+      for (const { material, deps } of results) {
+        if (deps.hasDependencies) {
+          blocked.push({ material, dependencies: deps });
+        } else {
+          deletable.push(material);
+        }
+      }
+
+      setBlockedItems(blocked);
+      setDeletableTargets(deletable);
+
+      if (blocked.length > 0) {
         setIsDependencyModalOpen(true);
       } else {
         setIsConfirmOpen(true);
       }
     } catch {
-      setDeleteTarget(null);
+      setDeleteTargets([]);
       options?.onError?.('의존성 확인 중 오류가 발생했습니다.');
     } finally {
       setIsChecking(false);
@@ -37,46 +64,54 @@ export function useMaterialDelete(options?: { onDeleted?: () => void; onError?: 
   }, [options]);
 
   const confirmDelete = useCallback(async () => {
-    if (!deleteTarget) return;
+    const targets = deletableTargets.length > 0 ? deletableTargets : deleteTargets;
+    if (targets.length === 0) return;
+
     setIsDeleting(true);
     try {
       const repo = getMaterialRepository();
-      await repo.delete(deleteTarget.id);
-      removeFromCache(deleteTarget.id);
-      setIsConfirmOpen(false);
-      setDeleteTarget(null);
-      options?.onDeleted?.();
-    } catch (err: unknown) {
-      setIsConfirmOpen(false);
-      // FK constraint violation (code 23503) — re-fetch deps and show modal
-      const isFkError = err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === '23503';
-      if (isFkError) {
+      let deletedCount = 0;
+      for (const material of targets) {
         try {
-          const repo = getMaterialRepository();
-          const deps = await repo.checkDependencies(deleteTarget.id);
-          setDependencies(deps);
-          setIsDependencyModalOpen(true);
-        } catch {
-          options?.onError?.('자재가 다른 데이터에서 사용 중이므로 삭제할 수 없습니다.');
+          await repo.delete(material.id);
+          removeFromCache(material.id);
+          deletedCount++;
+        } catch (err: unknown) {
+          const isFkError = err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === '23503';
+          if (isFkError) {
+            // FK constraint — skip this item, it has hidden deps
+          } else {
+            throw err;
+          }
         }
-      } else {
-        options?.onError?.('자재 삭제 중 오류가 발생했습니다.');
       }
+      setIsConfirmOpen(false);
+      setDeleteTargets([]);
+      setDeletableTargets([]);
+      setBlockedItems([]);
+      if (deletedCount > 0) {
+        options?.onDeleted?.(deletedCount);
+      }
+    } catch {
+      setIsConfirmOpen(false);
+      options?.onError?.('자재 삭제 중 오류가 발생했습니다.');
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteTarget, removeFromCache, options]);
+  }, [deleteTargets, deletableTargets, removeFromCache, options]);
 
   const cancelDelete = useCallback(() => {
     setIsConfirmOpen(false);
     setIsDependencyModalOpen(false);
-    setDeleteTarget(null);
-    setDependencies(null);
+    setDeleteTargets([]);
+    setDeletableTargets([]);
+    setBlockedItems([]);
   }, []);
 
   return {
-    deleteTarget,
-    dependencies,
+    deleteTargets,
+    blockedItems,
+    deletableTargets,
     isChecking,
     isDeleting,
     isConfirmOpen,

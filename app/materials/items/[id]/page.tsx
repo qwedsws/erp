@@ -53,8 +53,8 @@ export default function MaterialDetailPage() {
   } = useMaterialDetailViewModel(materialId);
 
   const {
-    deleteTarget,
-    dependencies,
+    deleteTargets,
+    blockedItems,
     isChecking,
     isDeleting,
     isConfirmOpen,
@@ -311,7 +311,7 @@ export default function MaterialDetailPage() {
         open={isConfirmOpen}
         onOpenChange={setIsConfirmOpen}
         title="자재 삭제"
-        description={`"${deleteTarget?.name ?? ''}" 자재를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+        description={`"${deleteTargets[0]?.name ?? ''}" 자재를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
         confirmLabel="삭제"
         confirmVariant="destructive"
         confirmDisabled={isDeleting}
@@ -326,12 +326,12 @@ export default function MaterialDetailPage() {
               자재 삭제 불가
             </AlertDialogTitle>
             <AlertDialogDescription>
-              &quot;{deleteTarget?.name}&quot; 자재가 다른 데이터에서 사용 중이므로 삭제할 수 없습니다.
+              &quot;{blockedItems[0]?.material.name}&quot; 자재가 다른 데이터에서 사용 중이므로 삭제할 수 없습니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {dependencies && (
+          {blockedItems.length > 0 && (
             <div className="space-y-2 text-sm">
-              {dependencies.items.map((dep) => (
+              {blockedItems[0].dependencies.items.map((dep) => (
                 <div key={dep.type} className="flex items-start gap-2 p-2 bg-muted/50 rounded">
                   <span className="font-medium shrink-0">{dep.label}</span>
                   <span className="text-muted-foreground">{dep.count}건</span>

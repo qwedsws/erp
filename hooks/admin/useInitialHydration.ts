@@ -53,6 +53,7 @@ export function useInitialHydration() {
   const setSteelTags = useERPStore((s) => s.setSteelTags);
 
   const [isHydrating, setIsHydrating] = useState(false);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
 
   const hydrateSingle = useCallback(
     async (resource: HydrationResource, options?: QueryRangeOptions) => {
@@ -131,10 +132,15 @@ export function useInitialHydration() {
         await Promise.all(
           requests.map((request) => hydrateSingle(request.resource, request.options)),
         );
-      } finally {
         if (!isHydrated) {
           setHydrated(true);
         }
+        setHydrationError(null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setHydrationError(msg);
+        console.error('Hydration failed:', msg);
+      } finally {
         setIsHydrating(false);
       }
     },
@@ -152,6 +158,7 @@ export function useInitialHydration() {
   return {
     isHydrated,
     isHydrating,
+    hydrationError,
     hydrate,
     hydrateResources,
     isResourceHydrated,

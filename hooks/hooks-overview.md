@@ -7,9 +7,12 @@ Store 캐시 갱신, UseCase 실행, 비동기 액션 래핑을 담당한다.
 ## Contents
 - `hooks/materials/`: 자재/재고/입고 관련 훅 + `useMaterialListQuery` (서버 페이지네이션)
 - `hooks/procurement/`: 공급처/발주/구매요청/STEEL 태그 훅 + `usePurchaseOrderListQuery`, `usePurchaseRequestListQuery` (서버 페이지네이션)
-- `hooks/accounting/`: 회계 이벤트/분개 조회 훅
-- `hooks/admin/`: `useInitialHydration` (소형 참조 데이터만: suppliers, stocks, stockMovements, materialPrices, steelTags), `useProfiles`
-- `hooks/shared/`: 공통 유틸 훅(`useAsyncAction` 등)
+- `hooks/projects/`: 프로젝트 캘린더/타임라인/자재요약/공정 훅
+- `hooks/production/`: 작업지시/작업실적/설비 훅
+- `hooks/sales/`, `hooks/quality/`, `hooks/accounting/`: 도메인별 조회/액션 훅
+- `hooks/design/`: 설계 관리/업무배정/워크로드 훅
+- `hooks/admin/`: `useInitialHydration`, `useProfiles`, `useDataIntegrityChecks`
+- `hooks/shared/`: 공통 유틸 훅(`useAsyncAction`, `useAuth`, `useFeedbackToast`)
 
 ## 서버 페이지네이션 패턴 (완료)
 리스트 전용 query hook이 repository의 `findPage()` 메서드를 호출하여 서버에서 검색/필터/페이지네이션 수행:

@@ -5,14 +5,16 @@
 Entity, Port(Repository 인터페이스), Service, UseCase를 정의한다.
 
 ## Contents
-- `domain/shared/`: 공통 엔티티/타입/에러 (43 types: 22 aliases + 21 interfaces)
-- `domain/materials/`: 자재/재고/태그 규칙 + use-cases (6개: stock-out, adjust, bulk-adjust, receive-direct, receive-po)
-- `domain/procurement/`: 공급처/발주/구매요청 규칙 + use-cases (convert-requests-to-po, create-purchase-requests-from-bom)
-- `domain/sales/`: 수주/고객 규칙 + use-cases (create-order-with-project — 설계 step 자동 시드 포함)
-- `domain/projects/`: 프로젝트/공정 규칙 + use-cases (progress-design-step)
-- `domain/production/`: 생산 규칙 + services (resolveProjectStatusFromSteps, isStatusLater)
-- `domain/accounting/`: 계정/분개/오픈아이템/이벤트 규칙 + auto-posting services
-- `domain/quality/`, `domain/admin/`: 품질/관리 규칙
+- `domain/shared/`: 공통 엔티티/타입/에러/문서번호 생성
+- `domain/sales/`: 고객/수주/결제 엔티티와 수주-프로젝트 생성 유스케이스
+- `domain/projects/`: 프로젝트/공정 엔티티와 공정 진행 유스케이스
+- `domain/design` 전용 폴더는 없고, 설계 공정은 `projects`/`production` 모델에 포함
+- `domain/materials/`: 자재/재고/태그/입출고 규칙
+- `domain/procurement/`: 공급처/발주/구매요청 규칙, PR→PO 변환
+- `domain/production/`: 작업지시/작업실적 규칙, 상태 전이 서비스
+- `domain/quality/`: 검사/트라이아웃/클레임 규칙
+- `domain/admin/`: 사용자 프로필/권한 관리 규칙
+- `domain/accounting/`: 계정/분개/오픈아이템/이벤트 + 자동분개 포스팅 유스케이스
 
 ## E2E project_id 추적 (완료)
 - PurchaseOrder.project_id: PR→PO 변환 시 자동 설정
@@ -21,8 +23,10 @@ Entity, Port(Repository 인터페이스), Service, UseCase를 정의한다.
 - STOCK_OUT 자동분개: project_id 기반 원가 추적
 - PO_ORDERED 분개: project_id 포함
 
-Supabase 연결 완료 도메인: materials, procurement, projects
+## Persistence 상태 (DI 기준)
+- Supabase 연결: `materials`, `procurement`, `projects`, `admin`
+- In-Memory 유지: `sales`, `production`, `quality`, `accounting`
 
 ## Notes
 - Port 변경 시 in-memory/supabase 구현체를 동시에 맞춰야 한다.
-- 과도한 범용 추상화보다, 자재/구매 도메인에 필요한 최소 query 계약부터 도입한다.
+- 과도한 범용 추상화보다 도메인별 최소 query 계약을 우선 도입한다.

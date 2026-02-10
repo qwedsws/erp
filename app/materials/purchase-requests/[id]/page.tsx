@@ -2,9 +2,10 @@
 
 import React, { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, FileText, Check, X } from 'lucide-react';
+import { ArrowLeft, FileText, Check, X, Undo2, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { StatusBadge } from '@/components/common/status-badge';
+import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { PromptDialog } from '@/components/common/prompt-dialog';
 import { usePurchaseRequests } from '@/hooks/procurement/usePurchaseRequests';
 import { useMaterials } from '@/hooks/materials/useMaterials';
@@ -16,13 +17,20 @@ import { calcSteelWeight, calcSteelPrice } from '@/lib/utils';
 export default function PurchaseRequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { purchaseRequests, approvePurchaseRequest, rejectPurchaseRequest } = usePurchaseRequests();
+  const {
+    purchaseRequests,
+    approvePurchaseRequest,
+    rejectPurchaseRequest,
+    revokePurchaseRequest,
+    deletePurchaseRequest,
+  } = usePurchaseRequests();
   const { materials } = useMaterials();
   const { profiles } = useProfiles();
   const { showError, showSuccess, showInfo } = useFeedbackToast();
 
   const [isRejectDialogOpen, setIsRejectDialogOpen] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState('');
+  const [confirmAction, setConfirmAction] = React.useState<'revoke' | 'delete' | null>(null);
 
   const pr = useMemo(
     () => purchaseRequests.find((r) => r.id === id),
@@ -84,6 +92,30 @@ export default function PurchaseRequestDetailPage() {
     }
   };
 
+  const confirmActionHandler = async () => {
+    if (!pr || !confirmAction) return;
+
+    if (confirmAction === 'revoke') {
+      const result = await revokePurchaseRequest(pr.id);
+      if (result.ok) {
+        showSuccess('승인/반려를 철회하고 승인대기로 되돌렸습니다.');
+        setConfirmAction(null);
+      } else {
+        showError(result.error);
+      }
+      return;
+    }
+
+    const result = await deletePurchaseRequest(pr.id);
+    if (result.ok) {
+      showSuccess('구매 요청을 삭제했습니다.');
+      setConfirmAction(null);
+      router.push('/materials/purchase-requests');
+    } else {
+      showError(result.error);
+    }
+  };
+
   if (!pr) {
     return (
       <div className="text-center py-12">
@@ -126,7 +158,39 @@ export default function PurchaseRequestDetailPage() {
                 <X size={16} />
                 반려
               </button>
+              <button
+                onClick={() => setConfirmAction('delete')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-300 text-red-700 rounded-md text-sm font-medium hover:bg-red-50 transition-colors"
+              >
+                <Trash2 size={16} />
+                삭제
+              </button>
             </div>
+          ) : pr.status === 'APPROVED' || pr.status === 'REJECTED' ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setConfirmAction('revoke')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 border border-orange-300 text-orange-700 rounded-md text-sm font-medium hover:bg-orange-50 transition-colors"
+              >
+                <Undo2 size={16} />
+                철회
+              </button>
+              <button
+                onClick={() => setConfirmAction('delete')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-300 text-red-700 rounded-md text-sm font-medium hover:bg-red-50 transition-colors"
+              >
+                <Trash2 size={16} />
+                삭제
+              </button>
+            </div>
+          ) : pr.status === 'DRAFT' ? (
+            <button
+              onClick={() => setConfirmAction('delete')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-300 text-red-700 rounded-md text-sm font-medium hover:bg-red-50 transition-colors"
+            >
+              <Trash2 size={16} />
+              삭제
+            </button>
           ) : undefined
         }
       />
@@ -285,6 +349,23 @@ export default function PurchaseRequestDetailPage() {
         cancelLabel="취소"
         confirmDisabled={!rejectReason.trim()}
         onConfirm={() => void confirmReject()}
+      />
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+        title={confirmAction === 'revoke' ? '승인/반려를 철회하시겠습니까?' : '구매 요청을 삭제하시겠습니까?'}
+        description={
+          confirmAction === 'revoke'
+            ? '요청 상태를 승인대기로 되돌립니다.'
+            : '삭제된 구매 요청은 복구할 수 없습니다.'
+        }
+        confirmLabel={confirmAction === 'revoke' ? '철회' : '삭제'}
+        cancelLabel="취소"
+        confirmVariant={confirmAction === 'revoke' ? 'default' : 'destructive'}
+        onConfirm={() => void confirmActionHandler()}
       />
     </div>
   );

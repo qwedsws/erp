@@ -56,15 +56,25 @@ export class CreateOrderWithProjectUseCase {
       return success({ order, project: null, designSteps: [] });
     }
 
-    const project = await this.projectRepo.create({
-      order_id: order.id,
-      name: input.title,
-      mold_type: input.mold_type ?? 'INJECTION',
-      status: 'CONFIRMED',
-      priority: input.priority ?? 'MEDIUM',
-      due_date: input.delivery_date,
-      description: input.notes,
-    });
+    let project: Project;
+    try {
+      project = await this.projectRepo.create({
+        order_id: order.id,
+        name: input.title,
+        mold_type: input.mold_type ?? 'INJECTION',
+        status: 'CONFIRMED',
+        priority: input.priority ?? 'MEDIUM',
+        due_date: input.delivery_date,
+        description: input.notes,
+      });
+    } catch (projErr) {
+      // TODO: Full DB transaction requires Supabase RPC — order already created
+      console.error('[CreateOrderWithProject] Project creation failed after order created:', {
+        orderId: order.id,
+        error: projErr instanceof Error ? projErr.message : String(projErr),
+      });
+      return failure(projErr instanceof Error ? projErr : new Error(String(projErr)));
+    }
 
     // Idempotency: check if design steps already exist for this project
     const existing = await this.stepRepo.findByProjectId(project.id);
@@ -88,7 +98,18 @@ export class CreateOrderWithProjectUseCase {
       status: 'PLANNED' as const,
     }));
 
-    const designSteps = await this.stepRepo.createMany(stepData);
+    let designSteps: ProcessStep[];
+    try {
+      designSteps = await this.stepRepo.createMany(stepData);
+    } catch (stepErr) {
+      // TODO: Full DB transaction requires Supabase RPC — order+project already created
+      console.error('[CreateOrderWithProject] Design steps creation failed:', {
+        orderId: order.id,
+        projectId: project.id,
+        error: stepErr instanceof Error ? stepErr.message : String(stepErr),
+      });
+      return failure(stepErr instanceof Error ? stepErr : new Error(String(stepErr)));
+    }
 
     return success({ order, project, designSteps });
   }

@@ -96,6 +96,13 @@ export function POHeaderActions({
               <Ban size={16} />
               발주 취소
             </button>
+            <button
+              onClick={onDelete}
+              className="inline-flex items-center gap-1.5 px-3 py-2 border border-destructive text-destructive rounded-md text-sm font-medium hover:bg-destructive/10"
+            >
+              <Trash2 size={16} />
+              삭제
+            </button>
           </>
         );
       case 'PARTIAL_RECEIVED':
@@ -107,6 +114,16 @@ export function POHeaderActions({
             <PackagePlus size={16} />
             추가 입고
           </Link>
+        );
+      case 'CANCELLED':
+        return (
+          <button
+            onClick={onDelete}
+            className="inline-flex items-center gap-1.5 px-3 py-2 border border-destructive text-destructive rounded-md text-sm font-medium hover:bg-destructive/10"
+          >
+            <Trash2 size={16} />
+            삭제
+          </button>
         );
       default:
         return null;

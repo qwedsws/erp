@@ -5,10 +5,8 @@ import type {
 } from '@/domain/procurement/ports';
 import type { Supplier, PurchaseOrder, PurchaseRequest } from '@/domain/procurement/entities';
 import { generateId, generateDocumentNo, type QueryRangeOptions, type SupplierPageQuery, type PurchaseOrderPageQuery, type PurchaseRequestPageQuery, type PageResult } from '@/domain/shared/types';
-import { mockSuppliers, mockPurchaseOrders, mockPurchaseRequests } from '@/lib/mock-data';
-
 export class InMemorySupplierRepository implements ISupplierRepository {
-  private data: Supplier[] = [...mockSuppliers];
+  private data: Supplier[] = [];
 
   async findAll(options?: QueryRangeOptions): Promise<Supplier[]> {
     if (!options?.limit) return this.data;
@@ -52,7 +50,7 @@ export class InMemorySupplierRepository implements ISupplierRepository {
 }
 
 export class InMemoryPurchaseOrderRepository implements IPurchaseOrderRepository {
-  private data: PurchaseOrder[] = [...mockPurchaseOrders];
+  private data: PurchaseOrder[] = [];
 
   async findAll(options?: QueryRangeOptions): Promise<PurchaseOrder[]> {
     if (!options?.limit) return this.data;
@@ -107,7 +105,7 @@ export class InMemoryPurchaseOrderRepository implements IPurchaseOrderRepository
 }
 
 export class InMemoryPurchaseRequestRepository implements IPurchaseRequestRepository {
-  private data: PurchaseRequest[] = [...mockPurchaseRequests];
+  private data: PurchaseRequest[] = [];
 
   async findAll(options?: QueryRangeOptions): Promise<PurchaseRequest[]> {
     if (!options?.limit) return this.data;

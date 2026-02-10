@@ -22,6 +22,26 @@ const eslintConfig = defineConfig([
               group: ["@/types/*", "@/types/**"],
               message: "Domain 레이어는 '@/types/*'를 참조하지 말고 domain 내부 entities를 사용하세요.",
             },
+            {
+              group: ["@/infrastructure/*", "@/infrastructure/**"],
+              message: "Domain 레이어는 infrastructure를 참조할 수 없습니다.",
+            },
+            {
+              group: ["@/store/*", "@/store/**"],
+              message: "Domain 레이어는 store를 참조할 수 없습니다.",
+            },
+            {
+              group: ["@/hooks/*", "@/hooks/**"],
+              message: "Domain 레이어는 hooks를 참조할 수 없습니다.",
+            },
+            {
+              group: ["@/app/*", "@/app/**"],
+              message: "Domain 레이어는 app을 참조할 수 없습니다.",
+            },
+            {
+              group: ["@/components/*", "@/components/**"],
+              message: "Domain 레이어는 components를 참조할 수 없습니다.",
+            },
           ],
         },
       ],
@@ -50,6 +70,18 @@ const eslintConfig = defineConfig([
               group: ["@/types/*", "@/types/**"],
               message:
                 "Application/Infrastructure 레이어는 '@/types/*' 대신 domain/*/entities 또는 domain/shared/entities를 사용하세요.",
+            },
+            {
+              group: ["@/hooks/*", "@/hooks/**"],
+              message: "Infrastructure/Store 레이어는 hooks를 참조할 수 없습니다.",
+            },
+            {
+              group: ["@/app/*", "@/app/**"],
+              message: "Infrastructure/Store 레이어는 app을 참조할 수 없습니다.",
+            },
+            {
+              group: ["@/components/*", "@/components/**"],
+              message: "Infrastructure/Store 레이어는 components를 참조할 수 없습니다.",
             },
           ],
         },

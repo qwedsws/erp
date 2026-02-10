@@ -1,29 +1,36 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePurchaseOrderListQuery } from '@/hooks/procurement/usePurchaseOrderListQuery';
+import { usePurchaseOrders } from '@/hooks/procurement/usePurchaseOrders';
 import { useSuppliers } from '@/hooks/procurement/useSuppliers';
 import { useMaterials } from '@/hooks/materials/useMaterials';
+import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
 import { PageHeader } from '@/components/common/page-header';
 import { StatusBadge } from '@/components/common/status-badge';
+import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { TablePagination } from '@/components/common/table-pagination';
 import { PO_STATUS_MAP, PurchaseOrderStatus } from '@/types';
 import type { PurchaseOrder, Material } from '@/types';
-import { Plus, Filter, Loader2 } from 'lucide-react';
+import { Plus, Filter, Loader2, Trash2 } from 'lucide-react';
 
 const PAGE_SIZE = 20;
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
   const {
-    items, total, page, pageSize, isLoading, setPage, setSearch, setStatus,
+    items, total, page, pageSize, isLoading, setPage, setSearch, setStatus, refresh,
   } = usePurchaseOrderListQuery({ pageSize: PAGE_SIZE });
+  const { deletePurchaseOrder } = usePurchaseOrders();
   const { suppliers } = useSuppliers();
   const { materials } = useMaterials();
+  const { showError, showSuccess } = useFeedbackToast();
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | 'ALL'>('ALL');
   const [searchInput, setSearchInput] = useState('');
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const supplierById = useMemo(
     () => new Map(suppliers.map((supplier) => [supplier.id, supplier])),
@@ -35,7 +42,44 @@ export default function PurchaseOrdersPage() {
     [materials],
   );
 
-  const statusTabs: (PurchaseOrderStatus | 'ALL')[] = ['ALL', 'DRAFT', 'ORDERED', 'PARTIAL_RECEIVED', 'RECEIVED'];
+  const statusTabs: (PurchaseOrderStatus | 'ALL')[] = ['ALL', 'DRAFT', 'ORDERED', 'PARTIAL_RECEIVED', 'RECEIVED', 'CANCELLED'];
+
+  const toggleCheck = useCallback((id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    setCheckedIds((prev) => {
+      if (prev.size === items.length && items.length > 0) return new Set();
+      return new Set(items.map((po) => po.id));
+    });
+  }, [items]);
+
+  const checkedCount = checkedIds.size;
+  const allChecked = items.length > 0 && checkedIds.size === items.length;
+
+  const handleBulkDelete = async () => {
+    let successCount = 0;
+    let failCount = 0;
+    for (const id of checkedIds) {
+      const result = await deletePurchaseOrder(id);
+      if (result.ok) successCount++;
+      else failCount++;
+    }
+    setShowDeleteDialog(false);
+    setCheckedIds(new Set());
+    refresh();
+    if (failCount > 0) {
+      showError(`${failCount}건 삭제 실패 (${successCount}건 삭제 완료)`);
+    } else {
+      showSuccess(`${successCount}건의 발주를 삭제했습니다.`);
+    }
+  };
 
   /** Build STEEL dimension summary for a PO, e.g. "NAK80 400×300×350 외" */
   function steelSummary(po: PurchaseOrder, matMap: Map<string, Material>): string | null {
@@ -76,6 +120,7 @@ export default function PurchaseOrdersPage() {
               onClick={() => {
                 setStatusFilter(status);
                 setStatus(status === 'ALL' ? undefined : status);
+                setCheckedIds(new Set());
               }}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 statusFilter === status
@@ -94,15 +139,38 @@ export default function PurchaseOrdersPage() {
           onChange={(e) => {
             setSearchInput(e.target.value);
             setSearch(e.target.value);
+            setCheckedIds(new Set());
           }}
           className="ml-auto h-9 w-64 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
 
+      {/* Bulk action bar */}
+      {checkedCount > 0 && (
+        <div className="flex items-center gap-3 mb-3 px-4 py-2 rounded-lg bg-muted/50 border border-border">
+          <span className="text-sm font-medium">{checkedCount}건 선택</span>
+          <button
+            onClick={() => setShowDeleteDialog(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-destructive text-destructive-foreground rounded-md text-xs font-medium hover:bg-destructive/90 transition-colors"
+          >
+            <Trash2 size={14} />
+            선택 삭제
+          </button>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/50 border-b border-border">
+              <th className="px-4 py-3 w-10">
+                <input
+                  type="checkbox"
+                  checked={allChecked}
+                  onChange={toggleAll}
+                  className="rounded border-input"
+                />
+              </th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">발주번호</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">공급처</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">발주일</th>
@@ -114,7 +182,7 @@ export default function PurchaseOrdersPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                   <span className="inline-flex items-center gap-2">
                     <Loader2 size={16} className="animate-spin" />
                     데이터를 불러오는 중...
@@ -123,7 +191,7 @@ export default function PurchaseOrdersPage() {
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                   발주 데이터가 없습니다.
                 </td>
               </tr>
@@ -131,12 +199,21 @@ export default function PurchaseOrdersPage() {
               items.map(po => {
                 const supplier = supplierById.get(po.supplier_id);
                 const steelInfo = steelSummary(po, materialById);
+                const checked = checkedIds.has(po.id);
                 return (
                   <tr
                     key={po.id}
-                    className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/30"
+                    className={`border-b border-border last:border-0 cursor-pointer hover:bg-muted/30 ${checked ? 'bg-primary/5' : ''}`}
                     onClick={() => router.push(`/materials/purchase-orders/${po.id}`)}
                   >
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleCheck(po.id)}
+                        className="rounded border-input"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs">{po.po_no}</span>
                       {steelInfo && (
@@ -165,7 +242,18 @@ export default function PurchaseOrdersPage() {
         totalCount={total}
         currentPage={page}
         pageSize={pageSize}
-        onPageChange={setPage}
+        onPageChange={(p) => { setPage(p); setCheckedIds(new Set()); }}
+      />
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title={`${checkedCount}건의 발주를 삭제하시겠습니까?`}
+        description="삭제하면 복구할 수 없습니다."
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        confirmVariant="destructive"
+        onConfirm={() => void handleBulkDelete()}
       />
     </div>
   );

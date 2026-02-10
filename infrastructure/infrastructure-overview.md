@@ -7,14 +7,21 @@ Domain Port의 실제 구현체를 제공하는 레이어다.
 ## Contents
 - `infrastructure/di/container.ts`: repository 팩토리/싱글톤 관리
 - `infrastructure/repositories/in-memory/`: 모든 도메인 메모리 구현
-- `infrastructure/repositories/supabase/`: materials, procurement, projects Supabase 구현
+- `infrastructure/repositories/supabase/`: materials, procurement, projects, admin Supabase 구현
 
 Supabase 연결 현황:
 | 도메인 | 리포지토리 파일 | 쿼리 함수 파일 | 테이블 |
 |--------|----------------|---------------|--------|
 | materials | `supabase/materials.ts` | `lib/supabase/materials.ts` | materials, stocks, stock_movements, material_prices, steel_tags |
-| procurement | `supabase/procurement.ts` (materials.ts에 포함) | `lib/supabase/materials.ts` | suppliers, purchase_orders, purchase_order_items, purchase_requests |
+| procurement | `supabase/procurement.ts` | `lib/supabase/materials.ts` | suppliers, purchase_orders, purchase_order_items, purchase_requests |
 | projects | `supabase/projects.ts` | `lib/supabase/projects.ts` | projects, process_steps |
+| admin | `supabase/admin.ts` | `lib/supabase/admin.ts` | profiles |
+
+In-Memory 전용 도메인(현재):
+- sales
+- production
+- quality
+- accounting
 
 페이지네이션 전환 주요 수정 지점:
 - `infrastructure/repositories/in-memory/materials.ts`

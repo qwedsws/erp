@@ -23,8 +23,10 @@
 ## 3) 실행 계획 문서
 
 - `plans/plans-overview.md`: 현재 활성 계획과 실행 우선순위 요약.
-- `plans/admin-hydration-pagination-plan.xml`: 현재 핵심 리팩터링(서버 페이지네이션/검색 전환) 상세 계획.
+- `plans/admin-hydration-pagination-plan.xml`: 관리자/목록 하이드레이션 및 페이지네이션 계획(완료 이력).
 - `plans/admin-hydration-pagination-handoff.md`: 다른 터미널/에이전트용 실행 핸드오프.
+- `plans/project-e2e-flow-consistency-plan.xml`: 수주→설계→구매→생산 E2E 데이터 일관성 계획.
+- `plans/project-e2e-flow-consistency-handoff.md`: E2E 계획 실행 핸드오프.
 - `plans/plan.xml`: 과거 완료된 자재/구매 구현 계획 아카이브.
 
 ## 4) 기능 상세/과거 설계 문서
@@ -32,6 +34,7 @@
 - `docs/material_procurement/m_p_plan.md`
 - `docs/material_procurement/plan_v1.md`
 - `docs/material_procurement/plan_v2.md`
+- `docs/projects/supabase_integration.md`
 
 자재/구매 도메인의 상세 설계 이력 문서이며, 현재 구조와 차이가 있을 수 있다.
 

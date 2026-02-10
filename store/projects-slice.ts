@@ -1,6 +1,5 @@
 import type { StateCreator } from 'zustand';
 import type { Project, ProcessStep } from '@/domain/projects/entities';
-import { mockProjects, mockProcessSteps } from '@/lib/mock-data';
 
 export interface ProjectsSlice {
   projects: Project[];
@@ -18,8 +17,8 @@ export interface ProjectsSlice {
 }
 
 export const createProjectsSlice: StateCreator<ProjectsSlice, [], [], ProjectsSlice> = (set) => ({
-  projects: mockProjects,
-  processSteps: mockProcessSteps,
+  projects: [],
+  processSteps: [],
 
   setProjects: (projects) => set({ projects }),
   addProjectToCache: (p) => set((s) => ({ projects: [...s.projects, p] })),

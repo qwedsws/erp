@@ -42,6 +42,7 @@ export function usePurchaseRequestsPageData() {
     approvePurchaseRequest,
     rejectPurchaseRequest,
     revokePurchaseRequest,
+    deletePurchaseRequest,
     convertRequestsToPO,
   } = usePurchaseRequests();
   const listQuery = usePurchaseRequestListQuery();
@@ -53,10 +54,12 @@ export function usePurchaseRequestsPageData() {
   const [showConvertPanel, setShowConvertPanel] = useState(false);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
-  const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
+  const [rejectTargetIds, setRejectTargetIds] = useState<string[]>([]);
   const [rejectReason, setRejectReason] = useState('');
   const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
-  const [revokeTargetId, setRevokeTargetId] = useState<string | null>(null);
+  const [revokeTargetIds, setRevokeTargetIds] = useState<string[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([]);
 
   // --- Derived data ---
   const materialById = useMemo(
@@ -68,14 +71,14 @@ export function usePurchaseRequestsPageData() {
     [profiles],
   );
 
-  // KPI counts from the full store data (not paginated)
+  // KPI counts: total from server, status breakdowns from cache
   const kpiCounts = useMemo<KpiCounts>(() => {
-    const total = purchaseRequests.length;
+    const total = listQuery.total;
     const pending = purchaseRequests.filter((pr) => pr.status === 'PENDING').length;
     const approved = purchaseRequests.filter((pr) => pr.status === 'APPROVED').length;
     const converted = purchaseRequests.filter((pr) => pr.status === 'CONVERTED').length;
     return { total, pending, approved, converted };
-  }, [purchaseRequests]);
+  }, [listQuery.total, purchaseRequests]);
 
   // Server-side paginated items
   const items = listQuery.items;
@@ -92,6 +95,28 @@ export function usePurchaseRequestsPageData() {
     return [...checkedIds].filter((id) => approvedIds.has(id)).length;
   }, [checkedIds, approvedIds]);
 
+  // Selection counts for toolbar buttons
+  const selectedPendingCount = useMemo(() => {
+    return [...checkedIds].filter((id) => {
+      const pr = items.find((p) => p.id === id);
+      return pr?.status === 'PENDING';
+    }).length;
+  }, [checkedIds, items]);
+
+  const selectedCanRevokeCount = useMemo(() => {
+    return [...checkedIds].filter((id) => {
+      const pr = items.find((p) => p.id === id);
+      return pr && (pr.status === 'APPROVED' || pr.status === 'REJECTED');
+    }).length;
+  }, [checkedIds, items]);
+
+  const selectedCanDeleteCount = useMemo(() => {
+    return [...checkedIds].filter((id) => {
+      const pr = items.find((p) => p.id === id);
+      return pr && pr.status !== 'CONVERTED';
+    }).length;
+  }, [checkedIds, items]);
+
   // --- Status filter synced with server query ---
   const handleSetStatusFilter = useCallback(
     (tab: StatusTab) => {
@@ -101,77 +126,164 @@ export function usePurchaseRequestsPageData() {
     [listQuery],
   );
 
-  // --- Handlers: Approve ---
-  const handleApprove = useCallback(
-    async (id: string) => {
+  // --- Handlers: Batch approve (direct, no dialog) ---
+  const batchApprove = useCallback(async () => {
+    const pendingIds = [...checkedIds].filter((id) => {
+      const pr = items.find((p) => p.id === id);
+      return pr?.status === 'PENDING';
+    });
+    if (pendingIds.length === 0) {
+      showInfo('승인할 대기 건이 없습니다.');
+      return;
+    }
+    let successCount = 0;
+    for (const id of pendingIds) {
       const result = await approvePurchaseRequest(id);
-      if (result.ok) {
-        showSuccess('구매 요청을 승인했습니다.');
-        listQuery.refresh();
-      } else {
-        showError(result.error);
-      }
-    },
-    [approvePurchaseRequest, showError, showSuccess, listQuery],
-  );
+      if (result.ok) successCount++;
+    }
+    if (successCount > 0) {
+      showSuccess(`${successCount}건의 구매 요청을 승인했습니다.`);
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        pendingIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      listQuery.refresh();
+    }
+  }, [checkedIds, items, approvePurchaseRequest, showInfo, showSuccess, listQuery]);
 
   // --- Handlers: Reject dialog ---
-  const openRejectDialog = useCallback((id: string) => {
-    setRejectTargetId(id);
+  const openRejectDialog = useCallback(() => {
+    const pendingIds = [...checkedIds].filter((id) => {
+      const pr = items.find((p) => p.id === id);
+      return pr?.status === 'PENDING';
+    });
+    if (pendingIds.length === 0) {
+      showInfo('반려할 대기 건이 없습니다.');
+      return;
+    }
+    setRejectTargetIds(pendingIds);
     setRejectReason('');
     setIsRejectDialogOpen(true);
-  }, []);
+  }, [checkedIds, items, showInfo]);
 
   const closeRejectDialog = useCallback((open: boolean) => {
     setIsRejectDialogOpen(open);
     if (!open) {
-      setRejectTargetId(null);
+      setRejectTargetIds([]);
       setRejectReason('');
     }
   }, []);
 
   const confirmReject = useCallback(async () => {
-    if (!rejectTargetId) return;
+    if (rejectTargetIds.length === 0) return;
     const reason = rejectReason.trim();
     if (!reason) {
       showInfo('반려 사유를 입력하세요.');
       return;
     }
-    const result = await rejectPurchaseRequest(rejectTargetId, reason);
-    if (result.ok) {
-      showSuccess('구매 요청을 반려했습니다.');
+    let successCount = 0;
+    for (const id of rejectTargetIds) {
+      const result = await rejectPurchaseRequest(id, reason);
+      if (result.ok) successCount++;
+    }
+    if (successCount > 0) {
+      showSuccess(`${successCount}건의 구매 요청을 반려했습니다.`);
       setIsRejectDialogOpen(false);
-      setRejectTargetId(null);
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        rejectTargetIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      setRejectTargetIds([]);
       setRejectReason('');
       listQuery.refresh();
     } else {
-      showError(result.error);
+      showError('반려 처리에 실패했습니다.');
     }
-  }, [rejectReason, rejectPurchaseRequest, rejectTargetId, showError, showInfo, showSuccess, listQuery]);
+  }, [rejectTargetIds, rejectReason, rejectPurchaseRequest, showError, showInfo, showSuccess, listQuery]);
 
   // --- Handlers: Revoke ---
-  const openRevokeDialog = useCallback((id: string) => {
-    setRevokeTargetId(id);
+  const openRevokeDialog = useCallback(() => {
+    const revokeIds = [...checkedIds].filter((id) => {
+      const pr = items.find((p) => p.id === id);
+      return pr && (pr.status === 'APPROVED' || pr.status === 'REJECTED');
+    });
+    if (revokeIds.length === 0) {
+      showInfo('철회할 승인/반려 건이 없습니다.');
+      return;
+    }
+    setRevokeTargetIds(revokeIds);
     setIsRevokeDialogOpen(true);
-  }, []);
+  }, [checkedIds, items, showInfo]);
 
   const closeRevokeDialog = useCallback((open: boolean) => {
     setIsRevokeDialogOpen(open);
-    if (!open) setRevokeTargetId(null);
+    if (!open) setRevokeTargetIds([]);
   }, []);
 
   const confirmRevoke = useCallback(async () => {
-    if (!revokeTargetId) return;
-    const result = await revokePurchaseRequest(revokeTargetId);
-    if (result.ok) {
-      showSuccess('승인/반려를 철회하고 승인대기로 되돌렸습니다.');
+    if (revokeTargetIds.length === 0) return;
+    let successCount = 0;
+    for (const id of revokeTargetIds) {
+      const result = await revokePurchaseRequest(id);
+      if (result.ok) successCount++;
+    }
+    if (successCount > 0) {
+      showSuccess(`${successCount}건의 승인/반려를 철회했습니다.`);
       setIsRevokeDialogOpen(false);
-      setRevokeTargetId(null);
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        revokeTargetIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      setRevokeTargetIds([]);
       listQuery.refresh();
     } else {
-      showError(result.error);
+      showError('철회 처리에 실패했습니다.');
     }
-  }, [revokeTargetId, revokePurchaseRequest, showError, showSuccess, listQuery]);
+  }, [revokeTargetIds, revokePurchaseRequest, showError, showSuccess, listQuery]);
+
+  // --- Handlers: Delete ---
+  const openDeleteDialog = useCallback(() => {
+    const deletableIds = [...checkedIds].filter((id) => {
+      const pr = items.find((p) => p.id === id);
+      return pr && pr.status !== 'CONVERTED';
+    });
+    if (deletableIds.length === 0) {
+      showInfo('삭제할 수 있는 건이 없습니다.');
+      return;
+    }
+    setDeleteTargetIds(deletableIds);
+    setIsDeleteDialogOpen(true);
+  }, [checkedIds, items, showInfo]);
+
+  const closeDeleteDialog = useCallback((open: boolean) => {
+    setIsDeleteDialogOpen(open);
+    if (!open) setDeleteTargetIds([]);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (deleteTargetIds.length === 0) return;
+    let successCount = 0;
+    for (const id of deleteTargetIds) {
+      const result = await deletePurchaseRequest(id);
+      if (result.ok) successCount++;
+    }
+    if (successCount > 0) {
+      showSuccess(`${successCount}건의 구매 요청을 삭제했습니다.`);
+      setIsDeleteDialogOpen(false);
+      setCheckedIds((prev) => {
+        const next = new Set(prev);
+        deleteTargetIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      setDeleteTargetIds([]);
+      listQuery.refresh();
+    } else {
+      showError('삭제 처리에 실패했습니다.');
+    }
+  }, [deleteTargetIds, deletePurchaseRequest, showError, showSuccess, listQuery]);
 
   // --- Handlers: Selection ---
   const toggleCheck = useCallback((id: string) => {
@@ -182,6 +294,22 @@ export function usePurchaseRequestsPageData() {
       return next;
     });
   }, []);
+
+  const toggleAll = useCallback(() => {
+    setCheckedIds((prev) => {
+      const allPageIds = items.map((pr) => pr.id);
+      const allChecked = allPageIds.length > 0 && allPageIds.every((id) => prev.has(id));
+      if (allChecked) {
+        const next = new Set(prev);
+        allPageIds.forEach((id) => next.delete(id));
+        return next;
+      } else {
+        const next = new Set(prev);
+        allPageIds.forEach((id) => next.add(id));
+        return next;
+      }
+    });
+  }, [items]);
 
   const toggleAllApproved = useCallback(() => {
     setCheckedIds((prev) => {
@@ -260,13 +388,18 @@ export function usePurchaseRequestsPageData() {
     hasCheckedApproved,
     checkedApprovedCount,
     toggleCheck,
+    toggleAll,
     toggleAllApproved,
     selectSingleAndShowPanel,
-    // Approve
-    handleApprove,
+    // Selection counts for toolbar
+    selectedPendingCount,
+    selectedCanRevokeCount,
+    selectedCanDeleteCount,
+    // Batch approve
+    batchApprove,
     // Reject dialog
     isRejectDialogOpen,
-    rejectTargetId,
+    rejectTargetIds,
     rejectReason,
     openRejectDialog,
     closeRejectDialog,
@@ -274,9 +407,16 @@ export function usePurchaseRequestsPageData() {
     confirmReject,
     // Revoke dialog
     isRevokeDialogOpen,
+    revokeTargetIds,
     openRevokeDialog,
     closeRevokeDialog,
     confirmRevoke,
+    // Delete dialog
+    isDeleteDialogOpen,
+    deleteTargetIds,
+    openDeleteDialog,
+    closeDeleteDialog,
+    confirmDelete,
     // Convert panel
     showConvertPanel,
     selectedSupplierId,

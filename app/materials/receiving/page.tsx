@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { PageHeader } from '@/components/common/page-header';
+import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { useReceivingPageData } from '@/hooks/materials/useReceivingPageData';
 import { Plus, Package, PackagePlus } from 'lucide-react';
 import { PendingPOPanel } from './_components/pending-po-panel';
@@ -14,7 +15,6 @@ export default function ReceivingPage() {
     setActiveTab,
     search,
     setSearch,
-    expandedPOs,
     materialById,
     purchaseOrderById,
     supplierById,
@@ -28,9 +28,12 @@ export default function ReceivingPage() {
     pendingPOCount,
     pendingAmount,
     overduePOCount,
-    togglePO,
-    expandAll,
-    collapseAll,
+    confirmPOAction,
+    targetPO,
+    openCancelDialog,
+    openDeleteDialog,
+    closePOActionDialog,
+    confirmPOActionHandler,
   } = useReceivingPageData();
 
   return (
@@ -111,14 +114,12 @@ export default function ReceivingPage() {
       {activeTab === 'pending' && (
         <PendingPOPanel
           filteredPendingPOs={filteredPendingPOs}
-          expandedPOs={expandedPOs}
           supplierById={supplierById}
           materialById={materialById}
           today={today}
           baseTimeMs={baseTimeMs}
-          togglePO={togglePO}
-          expandAll={expandAll}
-          collapseAll={collapseAll}
+          onCancelPO={openCancelDialog}
+          onDeletePO={openDeleteDialog}
         />
       )}
 
@@ -129,6 +130,21 @@ export default function ReceivingPage() {
           purchaseOrderById={purchaseOrderById}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmPOAction !== null}
+        onOpenChange={closePOActionDialog}
+        title={confirmPOAction === 'cancel' ? '발주를 취소하시겠습니까?' : '발주를 삭제하시겠습니까?'}
+        description={
+          confirmPOAction === 'cancel'
+            ? `발주 ${targetPO?.po_no ?? ''}를 취소 처리합니다.`
+            : `발주 ${targetPO?.po_no ?? ''}를 삭제하면 복구할 수 없습니다.`
+        }
+        confirmLabel={confirmPOAction === 'cancel' ? '발주 취소' : '삭제'}
+        cancelLabel="닫기"
+        confirmVariant={confirmPOAction === 'cancel' ? 'default' : 'destructive'}
+        onConfirm={() => void confirmPOActionHandler()}
+      />
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import type { StateCreator } from 'zustand';
 import type { Material, Stock, StockMovement, MaterialPrice, SteelTag } from '@/domain/materials/entities';
-import { mockMaterials, mockStocks, mockStockMovements, mockMaterialPrices, initialSteelTags } from '@/lib/mock-data';
 
 export interface MaterialsSlice {
   materials: Material[];
@@ -32,11 +31,11 @@ export interface MaterialsSlice {
 }
 
 export const createMaterialsSlice: StateCreator<MaterialsSlice, [], [], MaterialsSlice> = (set) => ({
-  materials: mockMaterials,
-  stocks: mockStocks,
-  stockMovements: mockStockMovements,
-  materialPrices: mockMaterialPrices,
-  steelTags: initialSteelTags,
+  materials: [],
+  stocks: [],
+  stockMovements: [],
+  materialPrices: [],
+  steelTags: [],
 
   setMaterials: (materials) => set({ materials }),
   addMaterialToCache: (m) => set((s) => ({ materials: [...s.materials, m] })),

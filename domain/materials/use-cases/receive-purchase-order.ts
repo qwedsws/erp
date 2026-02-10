@@ -215,6 +215,12 @@ export class ReceivePurchaseOrderUseCase {
         prices: newPrices,
       });
     } catch (err) {
+      // TODO: Full DB transaction requires Supabase RPC — partial writes may remain
+      console.error('[ReceivePurchaseOrderUseCase] Failed:', {
+        poId: input.poId,
+        itemCount: input.items.length,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return failure(err instanceof Error ? err : new Error(String(err)));
     }
   }

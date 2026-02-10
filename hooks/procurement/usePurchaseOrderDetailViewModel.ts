@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { usePurchaseOrders } from '@/hooks/procurement/usePurchaseOrders';
 import { useSuppliers } from '@/hooks/procurement/useSuppliers';
@@ -8,6 +8,7 @@ import { useMaterials } from '@/hooks/materials/useMaterials';
 import { useProfiles } from '@/hooks/admin/useProfiles';
 import { useStocks } from '@/hooks/materials/useStocks';
 import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
+import { getPurchaseOrderRepository } from '@/infrastructure/di/container';
 import type { Material, Supplier, Profile, PurchaseOrder, PurchaseOrderItem, StockMovement } from '@/domain/shared/entities';
 
 // ── Derived types ──────────────────────────────────────────────────────
@@ -36,6 +37,8 @@ export interface EditFormState {
 // ── Hook return type ───────────────────────────────────────────────────
 
 export interface PurchaseOrderDetailViewModel {
+  isLoading: boolean;
+
   // Core data
   po: PurchaseOrder | undefined;
   supplier: Supplier | null;
@@ -71,7 +74,7 @@ export interface PurchaseOrderDetailViewModel {
 export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel {
   const params = useParams();
   const router = useRouter();
-  const { purchaseOrders, updatePurchaseOrder, deletePurchaseOrder } = usePurchaseOrders();
+  const { updatePurchaseOrder, deletePurchaseOrder } = usePurchaseOrders();
   const { suppliers } = useSuppliers();
   const { materials } = useMaterials();
   const { profiles } = useProfiles();
@@ -83,6 +86,7 @@ export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel 
   // ── Local state ────────────────────────────────────────────────────
 
   const [isEditing, setIsEditing] = useState(false);
+  const [resolvedPO, setResolvedPO] = useState<PurchaseOrder | null | undefined>(undefined);
   const [confirmAction, setConfirmAction] = useState<'cancel' | 'delete' | null>(null);
   const [editForm, setEditForm] = useState<EditFormState>({
     supplier_id: '',
@@ -91,12 +95,37 @@ export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel 
     notes: '',
   });
 
+  useEffect(() => {
+    let mounted = true;
+
+    if (!poId) {
+      return () => {
+        mounted = false;
+      };
+    }
+
+    const repo = getPurchaseOrderRepository();
+    void repo
+      .findById(poId)
+      .then((purchaseOrder) => {
+        if (!mounted) return;
+        setResolvedPO(purchaseOrder);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        console.error('[usePurchaseOrderDetailViewModel] failed to load purchase order:', err);
+        setResolvedPO(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [poId]);
+
+  const isLoading = Boolean(poId) && resolvedPO === undefined;
+
   // ── Memoised lookups ───────────────────────────────────────────────
 
-  const purchaseOrderById = useMemo(
-    () => new Map(purchaseOrders.map((po) => [po.id, po])),
-    [purchaseOrders],
-  );
   const supplierById = useMemo(
     () => new Map(suppliers.map((s) => [s.id, s])),
     [suppliers],
@@ -110,7 +139,7 @@ export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel 
     [materials],
   );
 
-  const po = poId ? purchaseOrderById.get(poId) : undefined;
+  const po = resolvedPO ?? undefined;
 
   const supplier = useMemo(() => {
     if (!po) return null;
@@ -162,6 +191,7 @@ export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel 
     if (!po) return;
     const result = await updatePurchaseOrder(po.id, { status: 'ORDERED' });
     if (result.ok) {
+      setResolvedPO(result.value);
       showSuccess('발주를 확정했습니다.');
     } else {
       showError(result.error);
@@ -181,6 +211,7 @@ export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel 
     if (confirmAction === 'cancel') {
       const result = await updatePurchaseOrder(po.id, { status: 'CANCELLED' });
       if (result.ok) {
+        setResolvedPO(result.value);
         showSuccess('발주를 취소했습니다.');
         setConfirmAction(null);
       } else {
@@ -230,6 +261,7 @@ export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel 
       notes: editForm.notes || undefined,
     });
     if (result.ok) {
+      setResolvedPO(result.value);
       setIsEditing(false);
       showSuccess('발주 정보를 저장했습니다.');
     } else {
@@ -245,6 +277,7 @@ export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel 
   );
 
   return {
+    isLoading,
     po,
     supplier,
     creator,

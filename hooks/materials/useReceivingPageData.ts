@@ -1,21 +1,26 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useMaterials } from '@/hooks/materials/useMaterials';
 import { useStocks } from '@/hooks/materials/useStocks';
 import { usePurchaseOrders } from '@/hooks/procurement/usePurchaseOrders';
 import { useSuppliers } from '@/hooks/procurement/useSuppliers';
+import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
 
 export type ReceivingTab = 'pending' | 'history';
+export type ReceivingPOAction = 'cancel' | 'delete';
 
 export function useReceivingPageData() {
   const { stockMovements } = useStocks({ includeStocks: false, includeMovements: true });
   const { materials } = useMaterials();
-  const { purchaseOrders } = usePurchaseOrders();
+  const { purchaseOrders, updatePurchaseOrder, deletePurchaseOrder } = usePurchaseOrders();
   const { suppliers } = useSuppliers();
+  const { showError, showSuccess } = useFeedbackToast();
   const [activeTab, setActiveTab] = useState<ReceivingTab>('pending');
   const [search, setSearch] = useState('');
   const [expandedPOs, setExpandedPOs] = useState<Set<string>>(new Set());
+  const [confirmPOAction, setConfirmPOAction] = useState<ReceivingPOAction | null>(null);
+  const [targetPOId, setTargetPOId] = useState<string | null>(null);
 
   const materialById = useMemo(
     () => new Map(materials.map((material) => [material.id, material])),
@@ -135,6 +140,61 @@ export function useReceivingPageData() {
     setExpandedPOs(new Set());
   };
 
+  const openCancelDialog = useCallback((poId: string) => {
+    setTargetPOId(poId);
+    setConfirmPOAction('cancel');
+  }, []);
+
+  const openDeleteDialog = useCallback((poId: string) => {
+    setTargetPOId(poId);
+    setConfirmPOAction('delete');
+  }, []);
+
+  const closePOActionDialog = useCallback((open: boolean) => {
+    if (open) return;
+    setConfirmPOAction(null);
+    setTargetPOId(null);
+  }, []);
+
+  const confirmPOActionHandler = useCallback(async () => {
+    if (!confirmPOAction || !targetPOId) return;
+
+    if (confirmPOAction === 'cancel') {
+      const result = await updatePurchaseOrder(targetPOId, { status: 'CANCELLED' });
+      if (result.ok) {
+        showSuccess('발주를 취소했습니다.');
+        closePOActionDialog(false);
+      } else {
+        showError(result.error);
+      }
+      return;
+    }
+
+    const result = await deletePurchaseOrder(targetPOId);
+    if (result.ok) {
+      showSuccess('발주를 삭제했습니다.');
+      closePOActionDialog(false);
+      setExpandedPOs((prev) => {
+        if (!prev.has(targetPOId)) return prev;
+        const next = new Set(prev);
+        next.delete(targetPOId);
+        return next;
+      });
+    } else {
+      showError(result.error);
+    }
+  }, [
+    closePOActionDialog,
+    confirmPOAction,
+    deletePurchaseOrder,
+    showError,
+    showSuccess,
+    targetPOId,
+    updatePurchaseOrder,
+  ]);
+
+  const targetPO = targetPOId ? purchaseOrderById.get(targetPOId) ?? null : null;
+
   return {
     activeTab,
     setActiveTab,
@@ -158,5 +218,11 @@ export function useReceivingPageData() {
     togglePO,
     expandAll,
     collapseAll,
+    confirmPOAction,
+    targetPO,
+    openCancelDialog,
+    openDeleteDialog,
+    closePOActionDialog,
+    confirmPOActionHandler,
   };
 }

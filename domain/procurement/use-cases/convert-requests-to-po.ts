@@ -122,15 +122,35 @@ export class ConvertRequestsToPOUseCase {
       if (po) poIdByProjectKey.set(projectKey, po.id);
     }
 
-    const updatedRequests = await Promise.all(
-      requests.map((pr) => {
-        const key = pr.project_id ?? PROJECT_NULL_KEY;
-        return this.prRepo.update(pr.id, {
-          status: 'CONVERTED',
-          po_id: poIdByProjectKey.get(key),
-        });
-      }),
-    );
+    let updatedRequests: PurchaseRequest[];
+    try {
+      updatedRequests = await Promise.all(
+        requests.map((pr) => {
+          const key = pr.project_id ?? PROJECT_NULL_KEY;
+          return this.prRepo.update(pr.id, {
+            status: 'CONVERTED',
+            po_id: poIdByProjectKey.get(key),
+          });
+        }),
+      );
+    } catch (prUpdateErr) {
+      // Compensation: delete created POs to avoid orphaned orders
+      console.error('[ConvertRequestsToPO] PR update failed, compensating by deleting created POs:', {
+        poIds: purchaseOrders.map(po => po.id),
+        error: prUpdateErr instanceof Error ? prUpdateErr.message : String(prUpdateErr),
+      });
+      for (const po of purchaseOrders) {
+        try {
+          await this.poRepo.delete(po.id);
+        } catch (delErr) {
+          console.error('[ConvertRequestsToPO] Failed to delete PO during compensation:', {
+            poId: po.id,
+            error: delErr instanceof Error ? delErr.message : String(delErr),
+          });
+        }
+      }
+      return failure(prUpdateErr instanceof Error ? prUpdateErr : new Error(String(prUpdateErr)));
+    }
 
     return success({ purchaseOrders, updatedRequests });
   }

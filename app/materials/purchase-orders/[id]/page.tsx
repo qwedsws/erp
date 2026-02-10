@@ -13,6 +13,14 @@ import { ArrowLeft, FileText } from 'lucide-react';
 export default function PurchaseOrderDetailPage() {
   const vm = usePurchaseOrderDetailViewModel();
 
+  if (vm.isLoading) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">발주 정보를 불러오는 중입니다...</p>
+      </div>
+    );
+  }
+
   if (!vm.po) {
     return (
       <div className="text-center py-12">

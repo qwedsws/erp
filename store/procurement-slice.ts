@@ -1,6 +1,5 @@
 import type { StateCreator } from 'zustand';
 import type { Supplier, PurchaseOrder, PurchaseRequest } from '@/domain/procurement/entities';
-import { mockSuppliers, mockPurchaseOrders, mockPurchaseRequests } from '@/lib/mock-data';
 
 export interface ProcurementSlice {
   suppliers: Supplier[];
@@ -21,12 +20,13 @@ export interface ProcurementSlice {
   setPurchaseRequests: (prs: PurchaseRequest[]) => void;
   addPurchaseRequestToCache: (pr: PurchaseRequest) => void;
   updatePurchaseRequestInCache: (id: string, data: Partial<PurchaseRequest>) => void;
+  removePurchaseRequestFromCache: (id: string) => void;
 }
 
 export const createProcurementSlice: StateCreator<ProcurementSlice, [], [], ProcurementSlice> = (set) => ({
-  suppliers: mockSuppliers,
-  purchaseOrders: mockPurchaseOrders,
-  purchaseRequests: mockPurchaseRequests,
+  suppliers: [],
+  purchaseOrders: [],
+  purchaseRequests: [],
 
   setSuppliers: (suppliers) => set({ suppliers }),
   addSupplierToCache: (s) => set((state) => ({ suppliers: [...state.suppliers, s] })),
@@ -58,4 +58,6 @@ export const createProcurementSlice: StateCreator<ProcurementSlice, [], [], Proc
         pr.id === id ? { ...pr, ...data } : pr,
       ),
     })),
+  removePurchaseRequestFromCache: (id) =>
+    set((state) => ({ purchaseRequests: state.purchaseRequests.filter((pr) => pr.id !== id) })),
 });

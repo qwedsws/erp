@@ -19,22 +19,24 @@ export function useMaterialListQuery(initialQuery?: Partial<MaterialPageQuery>) 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
 
   const fetchData = useCallback(async (q: MaterialPageQuery) => {
+    const requestId = ++requestIdRef.current;
     setIsLoading(true);
     setError(null);
     try {
       const repo = getMaterialRepository();
       const data = await repo.findPage(q);
-      if (mountedRef.current) {
+      if (mountedRef.current && requestId === requestIdRef.current) {
         setResult(data);
       }
     } catch (err) {
-      if (mountedRef.current) {
+      if (mountedRef.current && requestId === requestIdRef.current) {
         setError(err instanceof Error ? err.message : 'Failed to fetch materials');
       }
     } finally {
-      if (mountedRef.current) setIsLoading(false);
+      if (mountedRef.current && requestId === requestIdRef.current) setIsLoading(false);
     }
   }, []);
 

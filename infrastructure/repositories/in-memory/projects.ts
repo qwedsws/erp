@@ -1,10 +1,9 @@
 import type { IProjectRepository, IProcessStepRepository } from '@/domain/projects/ports';
 import type { Project, ProcessStep } from '@/domain/projects/entities';
 import { generateId, generateDocumentNo } from '@/domain/shared/types';
-import { mockProjects, mockProcessSteps } from '@/lib/mock-data';
 
 export class InMemoryProjectRepository implements IProjectRepository {
-  private data: Project[] = [...mockProjects];
+  private data: Project[] = [];
 
   async findAll(): Promise<Project[]> {
     return this.data;
@@ -35,7 +34,7 @@ export class InMemoryProjectRepository implements IProjectRepository {
 }
 
 export class InMemoryProcessStepRepository implements IProcessStepRepository {
-  private data: ProcessStep[] = [...mockProcessSteps];
+  private data: ProcessStep[] = [];
 
   async findAll(): Promise<ProcessStep[]> {
     return this.data;

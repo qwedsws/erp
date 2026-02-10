@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useERPStore } from '@/store';
 import {
   getMaterialPriceRepository,
@@ -20,8 +21,12 @@ import {
 import { PostPOOrderedAccountingUseCase } from '@/domain/procurement/use-cases/post-po-ordered-accounting';
 import { useAsyncAction } from '@/hooks/shared/useAsyncAction';
 
+let posLoaded = false;
+let posLoadPromise: Promise<void> | null = null;
+
 export function usePurchaseOrders() {
   const purchaseOrders = useERPStore((s) => s.purchaseOrders);
+  const setPurchaseOrders = useERPStore((s) => s.setPurchaseOrders);
   const addToCache = useERPStore((s) => s.addPurchaseOrderToCache);
   const updateInCache = useERPStore((s) => s.updatePurchaseOrderInCache);
   const removeFromCache = useERPStore((s) => s.removePurchaseOrderFromCache);
@@ -35,6 +40,23 @@ export function usePurchaseOrders() {
   const { run, isLoading, error } = useAsyncAction();
 
   const repo = getPurchaseOrderRepository();
+
+  // Auto-load purchase orders from repository when store is empty
+  useEffect(() => {
+    if (posLoaded || posLoadPromise) return;
+    posLoadPromise = (async () => {
+      try {
+        const all = await repo.findAll();
+        setPurchaseOrders(all);
+        posLoaded = true;
+      } catch (err) {
+        console.error('Failed to load purchase orders:', err);
+      } finally {
+        posLoadPromise = null;
+      }
+    })();
+  }, [repo, setPurchaseOrders]);
+
   const stockRepo = getStockRepository();
   const movementRepo = getStockMovementRepository();
   const priceRepo = getMaterialPriceRepository();

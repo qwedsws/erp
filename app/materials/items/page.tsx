@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMaterialListQuery } from '@/hooks/materials/useMaterialListQuery';
@@ -29,6 +29,7 @@ export default function MaterialItemsPage() {
   const { steelTags } = useSteelTags();
   const [activeCategory, setActiveCategory] = useState<MaterialCategory | 'ALL'>('ALL');
   const [searchInput, setSearchInput] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { showSuccess, showError } = useFeedbackToast();
 
@@ -45,8 +46,8 @@ export default function MaterialItemsPage() {
   } = useMaterialListQuery();
 
   const {
-    deleteTarget,
-    dependencies,
+    deleteTargets,
+    blockedItems,
     isChecking,
     isDeleting,
     isConfirmOpen,
@@ -57,7 +58,11 @@ export default function MaterialItemsPage() {
     setIsConfirmOpen,
     setIsDependencyModalOpen,
   } = useMaterialDelete({
-    onDeleted: () => { showSuccess('자재가 삭제되었습니다.'); refresh(); },
+    onDeleted: (count) => {
+      showSuccess(`${count}건의 자재가 삭제되었습니다.`);
+      setSelectedIds(new Set());
+      refresh();
+    },
     onError: (msg) => showError(msg),
   });
 
@@ -74,14 +79,44 @@ export default function MaterialItemsPage() {
     return map;
   }, [steelTags]);
 
+  const isAllSelected = items.length > 0 && items.every((item) => selectedIds.has(item.id));
+
+  const toggleSelectAll = useCallback(() => {
+    if (isAllSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(items.map((item) => item.id)));
+    }
+  }, [isAllSelected, items]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  function handleDeleteSelected() {
+    const selected = items.filter((item) => selectedIds.has(item.id));
+    if (selected.length === 0) return;
+    void requestDelete(selected);
+  }
+
   function handleCategoryChange(cat: MaterialCategory | 'ALL') {
     setActiveCategory(cat);
     setCategory(cat === 'ALL' ? undefined : cat);
+    setSelectedIds(new Set());
   }
 
   function handleSearchChange(value: string) {
     setSearchInput(value);
     setSearch(value);
+    setSelectedIds(new Set());
   }
 
   function renderSpecification(item: Material) {
@@ -117,6 +152,19 @@ export default function MaterialItemsPage() {
     return item.unit_price ? `${item.unit_price.toLocaleString()}원` : '-';
   }
 
+  // Build dialog description text
+  const confirmDescription = deleteTargets.length === 1
+    ? `"${deleteTargets[0]?.name ?? ''}" 자재를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
+    : `${deleteTargets.length}건의 자재를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`;
+
+  const blockedDescription = (() => {
+    if (blockedItems.length === 0) return '';
+    if (deleteTargets.length === 1) {
+      return `"${blockedItems[0]?.material.name}" 자재가 다른 데이터에서 사용 중이므로 삭제할 수 없습니다.`;
+    }
+    return `선택한 ${deleteTargets.length}건 중 ${blockedItems.length}건이 다른 데이터에서 사용 중이므로 삭제할 수 없습니다.`;
+  })();
+
   return (
     <div>
       <PageHeader
@@ -148,7 +196,7 @@ export default function MaterialItemsPage() {
         ))}
       </div>
 
-      <div className="mb-4">
+      <div className="flex items-center justify-between mb-4">
         <div className="relative w-64">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -159,12 +207,30 @@ export default function MaterialItemsPage() {
             className="h-9 w-full pl-8 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
+        {selectedIds.size > 0 && (
+          <button
+            onClick={handleDeleteSelected}
+            disabled={isChecking}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-destructive text-destructive rounded-md text-sm font-medium hover:bg-destructive/10 disabled:opacity-50"
+          >
+            {isChecking ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            선택 삭제 ({selectedIds.size})
+          </button>
+        )}
       </div>
 
       <div className="rounded-lg border border-border overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/50 border-b border-border">
+              <th className="w-10 px-3 py-3">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={toggleSelectAll}
+                  className="rounded border-input"
+                />
+              </th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재코드</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재명</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">분류</th>
@@ -174,7 +240,6 @@ export default function MaterialItemsPage() {
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">재고</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">안전재고</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">리드타임</th>
-              <th className="w-10"></th>
             </tr>
           </thead>
           <tbody>
@@ -197,9 +262,19 @@ export default function MaterialItemsPage() {
               items.map((item) => (
                 <tr
                   key={item.id}
-                  className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/30"
+                  className={`border-b border-border last:border-0 cursor-pointer hover:bg-muted/30 ${
+                    selectedIds.has(item.id) ? 'bg-primary/5' : ''
+                  }`}
                   onClick={() => router.push(`/materials/items/${item.id}`)}
                 >
+                  <td className="w-10 px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => toggleSelect(item.id)}
+                      className="rounded border-input"
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     <span className="font-mono text-xs">{item.material_code}</span>
                   </td>
@@ -224,23 +299,6 @@ export default function MaterialItemsPage() {
                   <td className="px-4 py-3">
                     {item.lead_time != null ? `${item.lead_time}일` : '-'}
                   </td>
-                  <td className="px-2 py-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        requestDelete(item);
-                      }}
-                      disabled={isChecking}
-                      className="p-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-                      title="삭제"
-                    >
-                      {isChecking && deleteTarget?.id === item.id ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Trash2 size={14} />
-                      )}
-                    </button>
-                  </td>
                 </tr>
               ))
             )}
@@ -251,14 +309,14 @@ export default function MaterialItemsPage() {
         totalCount={total}
         currentPage={page}
         pageSize={pageSize}
-        onPageChange={setPage}
+        onPageChange={(p) => { setPage(p); setSelectedIds(new Set()); }}
       />
 
       <ConfirmDialog
         open={isConfirmOpen}
         onOpenChange={setIsConfirmOpen}
         title="자재 삭제"
-        description={`"${deleteTarget?.name ?? ''}" 자재를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+        description={confirmDescription}
         confirmLabel="삭제"
         confirmVariant="destructive"
         confirmDisabled={isDeleting}
@@ -273,27 +331,26 @@ export default function MaterialItemsPage() {
               자재 삭제 불가
             </AlertDialogTitle>
             <AlertDialogDescription>
-              &quot;{deleteTarget?.name}&quot; 자재가 다른 데이터에서 사용 중이므로 삭제할 수 없습니다.
+              {blockedDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {dependencies && (
-            <div className="space-y-2 text-sm">
-              {dependencies.items.map((dep) => (
-                <div key={dep.type} className="flex items-start gap-2 p-2 bg-muted/50 rounded">
-                  <span className="font-medium shrink-0">{dep.label}</span>
-                  <span className="text-muted-foreground">{dep.count}건</span>
-                  {dep.samples.length > 0 && (
-                    <span className="text-xs text-muted-foreground truncate">
-                      ({dep.samples.join(', ')})
+          <div className="space-y-2 text-sm max-h-60 overflow-y-auto">
+            {blockedItems.map(({ material, dependencies }) => (
+              <div key={material.id} className="p-2 bg-muted/50 rounded space-y-1">
+                <p className="font-medium">{material.name} <span className="text-xs text-muted-foreground font-normal">{material.material_code}</span></p>
+                <div className="flex flex-wrap gap-2">
+                  {dependencies.items.map((dep) => (
+                    <span key={dep.type} className="text-xs text-muted-foreground">
+                      {dep.label} {dep.count}건
                     </span>
-                  )}
+                  ))}
                 </div>
-              ))}
-              <p className="text-xs text-muted-foreground pt-1">
-                관련 데이터를 먼저 삭제한 후 자재를 삭제해 주세요.
-              </p>
-            </div>
-          )}
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground pt-1">
+              관련 데이터를 먼저 삭제한 후 자재를 삭제해 주세요.
+            </p>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={cancelDelete}>닫기</AlertDialogCancel>
           </AlertDialogFooter>
