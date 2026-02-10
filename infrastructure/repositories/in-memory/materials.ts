@@ -217,7 +217,8 @@ export class InMemoryMaterialPriceRepository implements IMaterialPriceRepository
   }
 
   async delete(id: string): Promise<void> {
-    this.data = this.data.filter(mp => mp.id !== id);
+    const idx = this.data.findIndex(mp => mp.id === id);
+    if (idx !== -1) this.data.splice(idx, 1);
   }
 }
 
@@ -249,6 +250,7 @@ export class InMemorySteelTagRepository implements ISteelTagRepository {
   }
 
   async delete(id: string): Promise<void> {
-    this.data = this.data.filter(t => t.id !== id);
+    const idx = this.data.findIndex(t => t.id === id);
+    if (idx !== -1) this.data.splice(idx, 1);
   }
 }

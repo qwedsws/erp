@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { StatusBadge } from '@/components/common/status-badge';
 import { PO_STATUS_MAP } from '@/types';
 import type { PurchaseOrderStatus } from '@/types';
-import { CheckCircle2, PackagePlus, Trash2, Pencil, Save, X, Ban } from 'lucide-react';
+import { PackagePlus, Trash2, Pencil, Save, X, Ban } from 'lucide-react';
 
 export interface POHeaderActionsProps {
   poId: string;
@@ -14,7 +14,6 @@ export interface POHeaderActionsProps {
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   onStartEdit: () => void;
-  onConfirmOrder: () => void;
   onDelete: () => void;
   onCancelOrder: () => void;
 }
@@ -26,7 +25,6 @@ export function POHeaderActions({
   onSaveEdit,
   onCancelEdit,
   onStartEdit,
-  onConfirmOrder,
   onDelete,
   onCancelOrder,
 }: POHeaderActionsProps) {
@@ -53,7 +51,7 @@ export function POHeaderActions({
     }
 
     switch (status) {
-      case 'DRAFT':
+      case 'IN_PROGRESS':
         return (
           <>
             <button
@@ -63,25 +61,6 @@ export function POHeaderActions({
               <Pencil size={16} />
               수정
             </button>
-            <button
-              onClick={onConfirmOrder}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90"
-            >
-              <CheckCircle2 size={16} />
-              발주 확정
-            </button>
-            <button
-              onClick={onDelete}
-              className="inline-flex items-center gap-1.5 px-3 py-2 border border-destructive text-destructive rounded-md text-sm font-medium hover:bg-destructive/10"
-            >
-              <Trash2 size={16} />
-              삭제
-            </button>
-          </>
-        );
-      case 'ORDERED':
-        return (
-          <>
             <Link
               href={`/materials/receiving/new?po=${poId}`}
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90"
@@ -105,16 +84,8 @@ export function POHeaderActions({
             </button>
           </>
         );
-      case 'PARTIAL_RECEIVED':
-        return (
-          <Link
-            href={`/materials/receiving/new?po=${poId}`}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90"
-          >
-            <PackagePlus size={16} />
-            추가 입고
-          </Link>
-        );
+      case 'COMPLETED':
+        return null;
       case 'CANCELLED':
         return (
           <button

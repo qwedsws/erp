@@ -7,34 +7,11 @@ import { useSuppliers } from '@/hooks/procurement/useSuppliers';
 import { useMaterials } from '@/hooks/materials/useMaterials';
 import { useProfiles } from '@/hooks/admin/useProfiles';
 import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
-import { calcSteelWeight, calcSteelPrice } from '@/lib/utils';
 import { getPurchaseRequestRepository } from '@/infrastructure/di/container';
 import type { PurchaseRequest } from '@/domain/procurement/entities';
+import { type POItemForm, type SteelCalc, calcSteelForItem } from './steel-calc';
 
-export interface POItemForm {
-  material_id: string;
-  quantity: string;
-  unit_price: string;
-  // STEEL dimension fields (mm)
-  dimension_w: string;
-  dimension_l: string;
-  dimension_h: string;
-}
-
-/** Derived STEEL calculations for a single PO item */
-export interface SteelCalc {
-  isSteel: boolean;
-  density: number;
-  pricePerKg: number;
-  pieceWeight: number;   // kg per EA
-  totalWeight: number;   // pieceWeight x qty
-  unitPrice: number;     // pieceWeight x pricePerKg (per EA)
-  subtotal: number;      // totalWeight x pricePerKg
-}
-
-function emptyCalc(): SteelCalc {
-  return { isSteel: false, density: 0, pricePerKg: 0, pieceWeight: 0, totalWeight: 0, unitPrice: 0, subtotal: 0 };
-}
+export type { POItemForm, SteelCalc };
 
 /**
  * Encapsulates all form state and actions for the "new purchase order" page.
@@ -52,8 +29,8 @@ export function usePurchaseOrderForm() {
   const { suppliers } = useSuppliers();
   const { materials } = useMaterials();
   const { profiles } = useProfiles();
-  const { createPurchaseOrder } = usePurchaseOrders();
-  const { showError, showSuccess, showInfo } = useFeedbackToast();
+  const { createPurchaseOrder, createPOWithPRLink } = usePurchaseOrders();
+  const { showError, showSuccess } = useFeedbackToast();
 
   const [form, setForm] = useState({
     supplier_id: '',
@@ -190,31 +167,8 @@ export function usePurchaseOrderForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPrIds, inProgressPRs, materialById, form.project_id]);
 
-  /** Compute STEEL calculations for a single item */
-  const calcSteelItem = (item: POItemForm): SteelCalc => {
-    const mat = item.material_id ? materialById.get(item.material_id) : null;
-    if (!mat || mat.category !== 'STEEL' || !mat.density || !mat.price_per_kg) return emptyCalc();
-
-    const w = Number(item.dimension_w) || 0;
-    const l = Number(item.dimension_l) || 0;
-    const h = Number(item.dimension_h) || 0;
-    const qty = Number(item.quantity) || 0;
-
-    const pieceWeight = (w > 0 && l > 0 && h > 0) ? calcSteelWeight(mat.density, w, l, h) : 0;
-    const totalWeight = Math.round(pieceWeight * qty * 100) / 100;
-    const unitPrice = pieceWeight > 0 ? calcSteelPrice(pieceWeight, mat.price_per_kg) : 0;
-    const subtotal = totalWeight > 0 ? calcSteelPrice(totalWeight, mat.price_per_kg) : 0;
-
-    return {
-      isSteel: true,
-      density: mat.density,
-      pricePerKg: mat.price_per_kg,
-      pieceWeight,
-      totalWeight,
-      unitPrice,
-      subtotal,
-    };
-  };
+  /** Compute STEEL calculations for a single item (binds materialById from hook scope) */
+  const calcSteelItem = (item: POItemForm): SteelCalc => calcSteelForItem(item, materialById);
 
   const totalAmount = useMemo(() => {
     return items.reduce((sum, item) => {
@@ -279,9 +233,9 @@ export function usePurchaseOrderForm() {
       return;
     }
 
-    const result = await createPurchaseOrder({
+    const poData = {
       supplier_id: form.supplier_id,
-      status: 'DRAFT',
+      status: 'IN_PROGRESS' as const,
       order_date: form.order_date,
       due_date: form.due_date || undefined,
       total_amount: totalAmount,
@@ -311,25 +265,14 @@ export function usePurchaseOrderForm() {
         };
       }),
       notes: form.notes || undefined,
-    });
+    };
+
+    // Use atomic use case when PRs are linked; plain create otherwise
+    const result = importedPrIds.length > 0
+      ? await createPOWithPRLink({ poData, linkedPrIds: importedPrIds })
+      : await createPurchaseOrder(poData);
 
     if (result.ok) {
-      const poId = result.value.id;
-
-      // Update imported PRs to COMPLETED status with po_id reference
-      if (importedPrIds.length > 0) {
-        try {
-          await Promise.all(
-            importedPrIds.map((prId) =>
-              prRepo.update(prId, { status: 'COMPLETED', po_id: poId }),
-            ),
-          );
-        } catch (err) {
-          console.error('Failed to update PR status after PO creation:', err);
-          showInfo('발주는 등록되었으나 구매요청 상태 업데이트에 실패했습니다.');
-        }
-      }
-
       showSuccess('발주가 등록되었습니다.');
       router.push('/materials/purchase-orders');
     } else {

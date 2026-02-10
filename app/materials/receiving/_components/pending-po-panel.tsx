@@ -253,7 +253,7 @@ export function PendingPOPanel({
                         <PackagePlus size={11} />
                         입고
                       </Link>
-                      {row.poStatus === 'ORDERED' && (
+                      {row.poStatus === 'IN_PROGRESS' && (
                         <>
                           <button
                             onClick={() => onCancelPO(row.poId)}

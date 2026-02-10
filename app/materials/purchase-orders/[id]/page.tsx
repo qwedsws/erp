@@ -60,7 +60,6 @@ export default function PurchaseOrderDetailPage() {
             onSaveEdit={() => void vm.handleSaveEdit()}
             onCancelEdit={vm.handleCancelEdit}
             onStartEdit={vm.handleStartEdit}
-            onConfirmOrder={() => void vm.handleConfirmOrder()}
             onDelete={vm.handleDelete}
             onCancelOrder={vm.handleCancelOrder}
           />

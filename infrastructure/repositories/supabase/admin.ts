@@ -11,6 +11,7 @@ export class SupabaseProfileRepository implements IProfileRepository {
     return sb.fetchProfileById(id);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async create(_data: Omit<Profile, 'id' | 'created_at' | 'updated_at'>): Promise<Profile> {
     // Profiles are auto-created by the auth trigger when a user signs up.
     // This method is not used for Supabase-backed profiles.

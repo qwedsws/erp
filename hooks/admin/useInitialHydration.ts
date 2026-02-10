@@ -31,6 +31,8 @@ const ALL_RESOURCES: HydrationResource[] = [
   'steelTags',
 ];
 
+const REQUIRED_RESOURCES: Set<HydrationResource> = new Set(['suppliers', 'stocks']);
+
 const DEFAULT_RESOURCE_LIMITS: Record<HydrationResource, number> = {
   suppliers: 300,
   stocks: 500,
@@ -129,17 +131,38 @@ export function useInitialHydration() {
       if (requests.length === 0) return;
       setIsHydrating(true);
       try {
-        await Promise.all(
-          requests.map((request) => hydrateSingle(request.resource, request.options)),
+        const results = await Promise.allSettled(
+          requests.map((request) =>
+            hydrateSingle(request.resource, request.options).then(
+              () => request.resource,
+            ),
+          ),
         );
-        if (!isHydrated) {
-          setHydrated(true);
+
+        const failedResources: string[] = [];
+        for (const [i, result] of results.entries()) {
+          if (result.status === 'rejected') {
+            failedResources.push(requests[i].resource);
+          }
         }
-        setHydrationError(null);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setHydrationError(msg);
-        console.error('Hydration failed:', msg);
+
+        const requiredFailed = failedResources.filter((r) =>
+          REQUIRED_RESOURCES.has(r as HydrationResource),
+        );
+
+        if (requiredFailed.length > 0) {
+          setHydrationError(
+            `필수 데이터 로드 실패: ${requiredFailed.join(', ')}`,
+          );
+        } else if (failedResources.length > 0) {
+          setHydrationError(
+            `일부 데이터 로드 실패: ${failedResources.join(', ')}`,
+          );
+          if (!isHydrated) setHydrated(true);
+        } else {
+          setHydrationError(null);
+          if (!isHydrated) setHydrated(true);
+        }
       } finally {
         setIsHydrating(false);
       }

@@ -11,6 +11,7 @@
 - `plans/project-e2e-flow-consistency-handoff.md`: 실행 핸드오프
 - `plans/materials-pr-po-status-workflow-plan.xml`: PR→PO→입고 완료 상태 전이 정렬 계획
 - `plans/pr-status-simplification-plan.xml`: 구매요청 승인/반려 제거 + 진행중 기반 발주 연계 전환 계획
+- `plans/pragmatic-refactor-plan.xml`: 실용 리팩터링(복원력/정합성/가독성) 실행 계획
 
 ## Completed Plans
 ### project-e2e-flow-consistency (P0-P5 전체 완료)
@@ -34,3 +35,4 @@
 - 코드 수정이 필요하면 plan의 `externalChanges` 항목을 기준으로 작업한다.
 - 최신 워크플로우 변경 요청은 `materials-pr-po-status-workflow-plan.xml`을 우선 참조한다.
 - 구매요청 상태 단순화 작업은 `pr-status-simplification-plan.xml`을 우선 참조한다.
+- 범용 리팩터링 작업은 `pragmatic-refactor-plan.xml`을 우선 참조한다.

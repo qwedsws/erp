@@ -58,7 +58,6 @@ export interface PurchaseOrderDetailViewModel {
   setConfirmAction: (action: 'cancel' | 'delete' | null) => void;
 
   // Handlers
-  handleConfirmOrder: () => Promise<void>;
   handleCancelOrder: () => void;
   handleDelete: () => void;
   handleConfirmAction: () => Promise<void>;
@@ -187,17 +186,6 @@ export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel 
     router.push('/materials/purchase-orders');
   }, [router]);
 
-  const handleConfirmOrder = useCallback(async () => {
-    if (!po) return;
-    const result = await updatePurchaseOrder(po.id, { status: 'ORDERED' });
-    if (result.ok) {
-      setResolvedPO(result.value);
-      showSuccess('발주를 확정했습니다.');
-    } else {
-      showError(result.error);
-    }
-  }, [po, updatePurchaseOrder, showSuccess, showError]);
-
   const handleCancelOrder = useCallback(() => {
     setConfirmAction('cancel');
   }, []);
@@ -290,7 +278,6 @@ export function usePurchaseOrderDetailViewModel(): PurchaseOrderDetailViewModel 
     editForm,
     confirmAction,
     setConfirmAction,
-    handleConfirmOrder,
     handleCancelOrder,
     handleDelete,
     handleConfirmAction,

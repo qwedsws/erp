@@ -49,7 +49,7 @@ export function useReceivingPageData() {
 
   const pendingPOs = useMemo(() => {
     return purchaseOrders
-      .filter((purchaseOrder) => purchaseOrder.status === 'ORDERED' || purchaseOrder.status === 'PARTIAL_RECEIVED')
+      .filter((purchaseOrder) => purchaseOrder.status === 'IN_PROGRESS')
       .sort((a, b) => {
         if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
         if (a.due_date) return -1;

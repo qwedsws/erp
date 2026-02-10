@@ -57,7 +57,7 @@ export class CreatePurchaseOrderUseCase {
 
     const purchaseOrder = await this.poRepo.create({
       supplier_id: input.supplier_id,
-      status: input.status ?? 'DRAFT',
+      status: input.status ?? 'IN_PROGRESS',
       order_date: input.order_date,
       due_date: input.due_date,
       total_amount: input.total_amount,

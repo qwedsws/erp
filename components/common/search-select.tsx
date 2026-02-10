@@ -32,6 +32,7 @@ export function SearchSelect({
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
   const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
+  const listboxId = React.useId();
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -123,6 +124,7 @@ export function SearchSelect({
           autoComplete="off"
           role="combobox"
           aria-expanded={open}
+          aria-controls={listboxId}
           aria-haspopup="listbox"
           className={cn(
             'w-full border border-input bg-background pr-7 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed',
@@ -137,6 +139,7 @@ export function SearchSelect({
       {open && (
         <div
           ref={listRef}
+          id={listboxId}
           role="listbox"
           className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-60 overflow-y-auto"
         >

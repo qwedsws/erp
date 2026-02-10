@@ -166,7 +166,7 @@ export interface Machine {
 }
 
 export type MaterialCategory = 'STEEL' | 'TOOL' | 'CONSUMABLE' | 'STANDARD_PART' | 'PURCHASED';
-export type PurchaseOrderStatus = 'DRAFT' | 'ORDERED' | 'PARTIAL_RECEIVED' | 'COMPLETED' | 'CANCELLED';
+export type PurchaseOrderStatus = 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 export type StockMovementType = 'IN' | 'OUT' | 'ADJUST';
 export type ToolType =
   | 'END_MILL'

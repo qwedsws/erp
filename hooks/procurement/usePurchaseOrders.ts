@@ -5,6 +5,7 @@ import { useERPStore } from '@/store';
 import {
   getMaterialPriceRepository,
   getPurchaseOrderRepository,
+  getPurchaseRequestRepository,
   getStockMovementRepository,
   getStockRepository,
   getGLAccountRepository,
@@ -19,6 +20,10 @@ import {
   type CreatePurchaseOrderInput,
 } from '@/domain/procurement/use-cases/create-purchase-order';
 import { PostPOOrderedAccountingUseCase } from '@/domain/procurement/use-cases/post-po-ordered-accounting';
+import {
+  CreatePOWithPRLinkUseCase,
+  type CreatePOWithPRLinkInput,
+} from '@/domain/procurement/use-cases/create-po-with-pr-link';
 import { useAsyncAction } from '@/hooks/shared/useAsyncAction';
 
 let posLoaded = false;
@@ -37,6 +42,8 @@ export function usePurchaseOrders() {
   const addJournalEntryToCache = useERPStore((s) => s.addJournalEntryToCache);
   const addAccountingEventToCache = useERPStore((s) => s.addAccountingEventToCache);
   const addAPOpenItemToCache = useERPStore((s) => s.addAPOpenItemToCache);
+  // PR cache (for createPOWithPRLink)
+  const updatePurchaseRequestInCache = useERPStore((s) => s.updatePurchaseRequestInCache);
   const { run, isLoading, error } = useAsyncAction();
 
   const repo = getPurchaseOrderRepository();
@@ -63,7 +70,9 @@ export function usePurchaseOrders() {
   const receivePurchaseOrderUseCase = new ReceivePurchaseOrderUseCase(
     repo, stockRepo, movementRepo, priceRepo,
   );
+  const prRepo = getPurchaseRequestRepository();
   const createPurchaseOrderUseCase = new CreatePurchaseOrderUseCase(repo);
+  const createPOWithPRLinkUseCase = new CreatePOWithPRLinkUseCase(repo, prRepo);
   const postPOOrderedAccountingUseCase = new PostPOOrderedAccountingUseCase(
     getGLAccountRepository(),
     getJournalEntryRepository(),
@@ -83,6 +92,36 @@ export function usePurchaseOrders() {
         addJournalEntryToCache(accountingResult.value.journalEntry);
         addAccountingEventToCache(accountingResult.value.event);
         if (accountingResult.value.apItem) addAPOpenItemToCache(accountingResult.value.apItem);
+      }
+
+      return result.value;
+    });
+
+  const createPOWithPRLink = (input: CreatePOWithPRLinkInput) =>
+    run(async () => {
+      const result = await createPOWithPRLinkUseCase.execute(input);
+      if (!result.ok) throw result.error;
+
+      const { purchaseOrder, updatedRequests } = result.value;
+
+      // Update PO cache
+      addToCache(purchaseOrder);
+
+      // Update PR cache entries
+      for (const pr of updatedRequests) {
+        updatePurchaseRequestInCache(pr.id, pr);
+      }
+
+      // Post accounting event (silent — never blocks business tx)
+      try {
+        const accountingResult = await postPOOrderedAccountingUseCase.execute(purchaseOrder);
+        if (accountingResult.ok && accountingResult.value) {
+          addJournalEntryToCache(accountingResult.value.journalEntry);
+          addAccountingEventToCache(accountingResult.value.event);
+          if (accountingResult.value.apItem) addAPOpenItemToCache(accountingResult.value.apItem);
+        }
+      } catch {
+        // Accounting failure must not block PO creation
       }
 
       return result.value;
@@ -128,7 +167,7 @@ export function usePurchaseOrders() {
 
   return {
     purchaseOrders,
-    createPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder, receivePurchaseOrder,
+    createPurchaseOrder, createPOWithPRLink, updatePurchaseOrder, deletePurchaseOrder, receivePurchaseOrder,
     isLoading, error,
   };
 }

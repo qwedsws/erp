@@ -32,7 +32,7 @@ export class PostPOOrderedAccountingUseCase {
   }
 
   async execute(po: PurchaseOrder): Promise<Result<PostAccountingEventResult | null>> {
-    if (po.status !== 'ORDERED') return success(null);
+    if (po.status !== 'IN_PROGRESS') return success(null);
     if (!po.supplier_id) return success(null);
     if (!po.total_amount || po.total_amount <= 0) return success(null);
 

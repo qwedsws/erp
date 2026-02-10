@@ -78,19 +78,19 @@ export default function MaterialsStatisticsPage() {
   // Pre-aggregate PO amounts + status counts
   const purchaseOrderMetrics = useMemo(() => {
     const amountByMonth = new Map<string, number>();
-    let activeOrderedCount = 0;
+    let activePOCount = 0;
     for (const po of purchaseOrders) {
       const key = po.order_date.slice(0, 7);
       amountByMonth.set(key, (amountByMonth.get(key) ?? 0) + (po.total_amount ?? 0));
-      if (po.status === 'ORDERED') {
-        activeOrderedCount += 1;
+      if (po.status === 'IN_PROGRESS') {
+        activePOCount += 1;
       }
     }
-    return { amountByMonth, activeOrderedCount };
+    return { amountByMonth, activePOCount };
   }, [purchaseOrders]);
 
-  // KPI 4: 발주 진행 (status='ORDERED')
-  const activePOCount = purchaseOrderMetrics.activeOrderedCount;
+  // KPI 4: 발주 진행 (status='IN_PROGRESS')
+  const activePOCount = purchaseOrderMetrics.activePOCount;
 
   // Chart 1: 월별 자재 소비 추이 (last 6 months, OUT movements)
   const monthlyConsumptionData = useMemo(() => {

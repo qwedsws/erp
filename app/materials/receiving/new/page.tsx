@@ -73,7 +73,7 @@ function NewReceivingContent() {
   // 입고 가능한 발주서 필터
   const receivablePOs = useMemo(() => {
     return purchaseOrders.filter(
-      po => po.status === 'ORDERED' || po.status === 'PARTIAL_RECEIVED'
+      po => po.status === 'IN_PROGRESS'
     );
   }, [purchaseOrders]);
 

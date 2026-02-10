@@ -56,13 +56,29 @@ export class SupabasePurchaseOrderRepository implements IPurchaseOrderRepository
 
   async create(input: Omit<PurchaseOrder, 'id' | 'po_no' | 'created_at' | 'updated_at'>): Promise<PurchaseOrder> {
     const now = new Date().toISOString();
-    const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
-    const existingPOs = await sb.fetchPurchaseOrders();
-    const existingNos = existingPOs.map(p => p.po_no);
-    const po_no = generateDocumentNo('PO', existingNos);
-    const po: PurchaseOrder = { ...input, id, po_no, created_at: now, updated_at: now } as PurchaseOrder;
-    await sb.insertPurchaseOrder(po);
-    return po;
+    const MAX_RETRIES = 3;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
+      const existingPOs = await sb.fetchPurchaseOrders();
+      const existingNos = existingPOs.map(p => p.po_no);
+      const po_no = generateDocumentNo('PO', existingNos);
+      const po: PurchaseOrder = { ...input, id, po_no, created_at: now, updated_at: now } as PurchaseOrder;
+
+      try {
+        await sb.insertPurchaseOrder(po);
+        return po;
+      } catch (err) {
+        const isConflict = err instanceof Error &&
+          (err.message.includes('duplicate') || err.message.includes('unique') || err.message.includes('23505'));
+        if (!isConflict || attempt === MAX_RETRIES - 1) {
+          throw err;
+        }
+        continue;
+      }
+    }
+
+    throw new Error('Failed to generate unique PO document number after retries');
   }
 
   async update(id: string, data: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
@@ -101,27 +117,59 @@ export class SupabasePurchaseRequestRepository implements IPurchaseRequestReposi
 
   async create(input: Omit<PurchaseRequest, 'id' | 'pr_no' | 'created_at' | 'updated_at'>): Promise<PurchaseRequest> {
     const now = new Date().toISOString();
-    const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
-    const existingPRs = await sb.fetchPurchaseRequests();
-    const existingNos = existingPRs.map(p => p.pr_no);
-    const pr_no = generateDocumentNo('PR', existingNos);
-    const pr: PurchaseRequest = { ...input, id, pr_no, created_at: now, updated_at: now } as PurchaseRequest;
-    await sb.insertPurchaseRequest(pr);
-    return pr;
+    const MAX_RETRIES = 3;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
+      const existingPRs = await sb.fetchPurchaseRequests();
+      const existingNos = existingPRs.map(p => p.pr_no);
+      const pr_no = generateDocumentNo('PR', existingNos);
+      const pr: PurchaseRequest = { ...input, id, pr_no, created_at: now, updated_at: now } as PurchaseRequest;
+
+      try {
+        await sb.insertPurchaseRequest(pr);
+        return pr;
+      } catch (err) {
+        const isConflict = err instanceof Error &&
+          (err.message.includes('duplicate') || err.message.includes('unique') || err.message.includes('23505'));
+        if (!isConflict || attempt === MAX_RETRIES - 1) {
+          throw err;
+        }
+        continue;
+      }
+    }
+
+    throw new Error('Failed to generate unique PR document number after retries');
   }
 
   async createMany(input: Omit<PurchaseRequest, 'id' | 'pr_no' | 'created_at' | 'updated_at'>[]): Promise<PurchaseRequest[]> {
     const now = new Date().toISOString();
-    const existingPRs = await sb.fetchPurchaseRequests();
-    const existingNos = existingPRs.map(p => p.pr_no);
-    const prs = input.map((item) => {
-      const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
-      const pr_no = generateDocumentNo('PR', existingNos);
-      existingNos.push(pr_no);
-      return { ...item, id, pr_no, created_at: now, updated_at: now } as PurchaseRequest;
-    });
-    await sb.insertPurchaseRequests(prs);
-    return prs;
+    const MAX_RETRIES = 3;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const existingPRs = await sb.fetchPurchaseRequests();
+      const existingNos = existingPRs.map(p => p.pr_no);
+      const prs = input.map((item) => {
+        const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
+        const pr_no = generateDocumentNo('PR', existingNos);
+        existingNos.push(pr_no);
+        return { ...item, id, pr_no, created_at: now, updated_at: now } as PurchaseRequest;
+      });
+
+      try {
+        await sb.insertPurchaseRequests(prs);
+        return prs;
+      } catch (err) {
+        const isConflict = err instanceof Error &&
+          (err.message.includes('duplicate') || err.message.includes('unique') || err.message.includes('23505'));
+        if (!isConflict || attempt === MAX_RETRIES - 1) {
+          throw err;
+        }
+        continue;
+      }
+    }
+
+    throw new Error('Failed to generate unique PR document numbers after retries');
   }
 
   async update(id: string, data: Partial<PurchaseRequest>): Promise<PurchaseRequest> {

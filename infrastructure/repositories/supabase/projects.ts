@@ -14,12 +14,28 @@ export class SupabaseProjectRepository implements IProjectRepository {
 
   async create(data: Omit<Project, 'id' | 'project_no' | 'created_at' | 'updated_at'>): Promise<Project> {
     const now = new Date().toISOString();
-    const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
-    const existing = await sb.fetchProjects();
-    const project_no = generateDocumentNo('PJ', existing.map(p => p.project_no));
-    const project: Project = { ...data, id, project_no, created_at: now, updated_at: now } as Project;
-    await sb.insertProject(project);
-    return project;
+    const MAX_RETRIES = 3;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const id = crypto.randomUUID?.() ?? Math.random().toString(36).substring(2);
+      const existing = await sb.fetchProjects();
+      const project_no = generateDocumentNo('PJ', existing.map(p => p.project_no));
+      const project: Project = { ...data, id, project_no, created_at: now, updated_at: now } as Project;
+
+      try {
+        await sb.insertProject(project);
+        return project;
+      } catch (err) {
+        const isConflict = err instanceof Error &&
+          (err.message.includes('duplicate') || err.message.includes('unique') || err.message.includes('23505'));
+        if (!isConflict || attempt === MAX_RETRIES - 1) {
+          throw err;
+        }
+        continue;
+      }
+    }
+
+    throw new Error('Failed to generate unique project document number after retries');
   }
 
   async update(id: string, data: Partial<Project>): Promise<Project> {

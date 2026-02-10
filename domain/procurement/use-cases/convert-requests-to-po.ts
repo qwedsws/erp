@@ -103,7 +103,7 @@ export class ConvertRequestsToPOUseCase {
       const po = await this.poRepo.create({
         supplier_id: input.supplierId,
         ...(projectKey !== PROJECT_NULL_KEY ? { project_id: projectKey } : {}),
-        status: 'DRAFT',
+        status: 'IN_PROGRESS',
         order_date: now.split('T')[0],
         due_date: groupRequests[0]?.required_date || now.split('T')[0],
         items,
