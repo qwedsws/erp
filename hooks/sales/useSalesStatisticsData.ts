@@ -4,7 +4,21 @@ import { useMemo } from 'react';
 import { useCustomers } from '@/hooks/sales/useCustomers';
 import { useOrders } from '@/hooks/sales/useOrders';
 import { usePayments } from '@/hooks/sales/usePayments';
-import { PAYMENT_TYPE_MAP, PAYMENT_METHOD_MAP } from '@/types/display';
+import type { PaymentMethod, PaymentType } from '@/domain/shared/entities';
+
+const PAYMENT_TYPE_LABEL_MAP: Record<PaymentType, string> = {
+  ADVANCE: '선금',
+  INTERIM: '중도금',
+  BALANCE: '잔금',
+  OTHER: '기타',
+};
+
+const PAYMENT_METHOD_LABEL_MAP: Record<PaymentMethod, string> = {
+  BANK_TRANSFER: '계좌이체',
+  CHECK: '수표',
+  CASH: '현금',
+  NOTE: '어음',
+};
 
 // ---------------------------------------------------------------------------
 // Return-type interfaces
@@ -155,7 +169,7 @@ export function useSalesStatisticsData(): SalesStatisticsData {
   const paymentTypeData = useMemo<PieSlice[]>(() => {
     const map: Record<string, number> = {};
     for (const p of confirmedPayments) {
-      const label = PAYMENT_TYPE_MAP[p.payment_type] || p.payment_type;
+      const label = PAYMENT_TYPE_LABEL_MAP[p.payment_type] || p.payment_type;
       map[label] = (map[label] || 0) + p.amount;
     }
     return Object.entries(map).map(([name, value]) => ({ name, value }));
@@ -166,7 +180,7 @@ export function useSalesStatisticsData(): SalesStatisticsData {
   const paymentMethodData = useMemo<PieSlice[]>(() => {
     const map: Record<string, number> = {};
     for (const p of confirmedPayments) {
-      const label = PAYMENT_METHOD_MAP[p.payment_method] || p.payment_method;
+      const label = PAYMENT_METHOD_LABEL_MAP[p.payment_method] || p.payment_method;
       map[label] = (map[label] || 0) + p.amount;
     }
     return Object.entries(map).map(([name, value]) => ({ name, value }));

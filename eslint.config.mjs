@@ -17,6 +17,12 @@ const eslintConfig = defineConfig([
               message: "Domain 레이어는 '@/types'를 참조하지 말고 domain 내부 entities를 사용하세요.",
             },
           ],
+          patterns: [
+            {
+              group: ["@/types/*", "@/types/**"],
+              message: "Domain 레이어는 '@/types/*'를 참조하지 말고 domain 내부 entities를 사용하세요.",
+            },
+          ],
         },
       ],
     },
@@ -37,6 +43,13 @@ const eslintConfig = defineConfig([
               name: "@/types",
               message:
                 "Application/Infrastructure 레이어는 '@/types' 대신 domain/*/entities 또는 domain/shared/entities를 사용하세요.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@/types/*", "@/types/**"],
+              message:
+                "Application/Infrastructure 레이어는 '@/types/*' 대신 domain/*/entities 또는 domain/shared/entities를 사용하세요.",
             },
           ],
         },
@@ -61,6 +74,15 @@ const eslintConfig = defineConfig([
               group: ["@/app/*", "@/app/**"],
               message: "Hooks 레이어는 app 레이어를 직접 참조하지 마세요.",
             },
+            {
+              group: ["@/types/*", "@/types/**"],
+              message:
+                "Hooks 레이어는 '@/types/*'를 참조하지 말고 domain/*/entities 또는 domain/shared/entities를 사용하세요.",
+            },
+            {
+              group: ["@/components/*", "@/components/**"],
+              message: "Hooks 레이어는 components 레이어를 직접 참조하지 마세요.",
+            },
           ],
         },
       ],
@@ -82,6 +104,20 @@ const eslintConfig = defineConfig([
               message: "Presentation 레이어에서는 store를 직접 import하지 말고 domain hook을 사용하세요.",
             },
           ],
+          patterns: [
+            {
+              group: ["@/lib/store/*", "@/lib/store/**", "@/store/*", "@/store/**"],
+              message: "Presentation 레이어에서는 store를 직접 import하지 말고 domain hook을 사용하세요.",
+            },
+            {
+              group: ["@/domain/*", "@/domain/**"],
+              message: "Presentation 레이어에서는 domain을 직접 import하지 말고 hook/type 경유를 사용하세요.",
+            },
+            {
+              group: ["@/infrastructure/*", "@/infrastructure/**"],
+              message: "Presentation 레이어에서는 infrastructure를 직접 import하지 말고 hook 경유를 사용하세요.",
+            },
+          ],
         },
       ],
     },
@@ -100,6 +136,20 @@ const eslintConfig = defineConfig([
             {
               name: "@/store",
               message: "Presentation 레이어에서는 store를 직접 import하지 말고 domain hook을 사용하세요.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@/lib/store/*", "@/lib/store/**", "@/store/*", "@/store/**"],
+              message: "Presentation 레이어에서는 store를 직접 import하지 말고 domain hook을 사용하세요.",
+            },
+            {
+              group: ["@/domain/*", "@/domain/**"],
+              message: "Presentation 레이어에서는 domain을 직접 import하지 말고 hook/type 경유를 사용하세요.",
+            },
+            {
+              group: ["@/infrastructure/*", "@/infrastructure/**"],
+              message: "Presentation 레이어에서는 infrastructure를 직접 import하지 말고 hook 경유를 사용하세요.",
             },
           ],
         },

@@ -4,12 +4,24 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMaterialListQuery } from '@/hooks/materials/useMaterialListQuery';
+import { useMaterialDelete } from '@/hooks/materials/useMaterialDelete';
 import { useStocks } from '@/hooks/materials/useStocks';
 import { useSteelTags } from '@/hooks/procurement/useSteelTags';
+import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
 import { PageHeader } from '@/components/common/page-header';
 import { TablePagination } from '@/components/common/table-pagination';
+import { ConfirmDialog } from '@/components/common/confirm-dialog';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 import { Material, MaterialCategory, MATERIAL_CATEGORY_MAP, TOOL_TYPE_MAP, ToolType } from '@/types';
-import { Plus, Package, Loader2, Search } from 'lucide-react';
+import { Plus, Package, Loader2, Search, Trash2, AlertTriangle } from 'lucide-react';
 
 export default function MaterialItemsPage() {
   const router = useRouter();
@@ -17,6 +29,8 @@ export default function MaterialItemsPage() {
   const { steelTags } = useSteelTags();
   const [activeCategory, setActiveCategory] = useState<MaterialCategory | 'ALL'>('ALL');
   const [searchInput, setSearchInput] = useState('');
+
+  const { showSuccess, showError } = useFeedbackToast();
 
   const {
     items,
@@ -27,7 +41,25 @@ export default function MaterialItemsPage() {
     setPage,
     setSearch,
     setCategory,
+    refresh,
   } = useMaterialListQuery();
+
+  const {
+    deleteTarget,
+    dependencies,
+    isChecking,
+    isDeleting,
+    isConfirmOpen,
+    isDependencyModalOpen,
+    requestDelete,
+    confirmDelete,
+    cancelDelete,
+    setIsConfirmOpen,
+    setIsDependencyModalOpen,
+  } = useMaterialDelete({
+    onDeleted: () => { showSuccess('자재가 삭제되었습니다.'); refresh(); },
+    onError: (msg) => showError(msg),
+  });
 
   const stockByMaterialId = useMemo(() => new Map(stocks.map(s => [s.material_id, s])), [stocks]);
   const steelAvailableStatsByMaterialId = useMemo(() => {
@@ -142,12 +174,13 @@ export default function MaterialItemsPage() {
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">재고</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">안전재고</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">리드타임</th>
+              <th className="w-10"></th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                   <div className="flex items-center justify-center gap-2">
                     <Loader2 size={16} className="animate-spin" />
                     데이터를 불러오는 중...
@@ -156,7 +189,7 @@ export default function MaterialItemsPage() {
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                   자재 데이터가 없습니다.
                 </td>
               </tr>
@@ -191,6 +224,23 @@ export default function MaterialItemsPage() {
                   <td className="px-4 py-3">
                     {item.lead_time != null ? `${item.lead_time}일` : '-'}
                   </td>
+                  <td className="px-2 py-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestDelete(item);
+                      }}
+                      disabled={isChecking}
+                      className="p-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                      title="삭제"
+                    >
+                      {isChecking && deleteTarget?.id === item.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
@@ -203,6 +253,52 @@ export default function MaterialItemsPage() {
         pageSize={pageSize}
         onPageChange={setPage}
       />
+
+      <ConfirmDialog
+        open={isConfirmOpen}
+        onOpenChange={setIsConfirmOpen}
+        title="자재 삭제"
+        description={`"${deleteTarget?.name ?? ''}" 자재를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+        confirmLabel="삭제"
+        confirmVariant="destructive"
+        confirmDisabled={isDeleting}
+        onConfirm={confirmDelete}
+      />
+
+      <AlertDialog open={isDependencyModalOpen} onOpenChange={setIsDependencyModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-destructive" />
+              자재 삭제 불가
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{deleteTarget?.name}&quot; 자재가 다른 데이터에서 사용 중이므로 삭제할 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {dependencies && (
+            <div className="space-y-2 text-sm">
+              {dependencies.items.map((dep) => (
+                <div key={dep.type} className="flex items-start gap-2 p-2 bg-muted/50 rounded">
+                  <span className="font-medium shrink-0">{dep.label}</span>
+                  <span className="text-muted-foreground">{dep.count}건</span>
+                  {dep.samples.length > 0 && (
+                    <span className="text-xs text-muted-foreground truncate">
+                      ({dep.samples.join(', ')})
+                    </span>
+                  )}
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground pt-1">
+                관련 데이터를 먼저 삭제한 후 자재를 삭제해 주세요.
+              </p>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelDelete}>닫기</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

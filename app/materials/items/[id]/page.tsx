@@ -1,12 +1,21 @@
 'use client';
 
-import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Pencil, Save, Trash2, TrendingUp, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Save, Trash2, TrendingUp, X, Loader2, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { MATERIAL_CATEGORY_MAP } from '@/types';
 import { useMaterialDetailViewModel } from '@/hooks/materials/useMaterialDetailViewModel';
+import { useMaterialDelete } from '@/hooks/materials/useMaterialDelete';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
 import { MaterialInfoSection } from './_components/material-info-section';
 import { SteelTagSection } from './_components/steel-tag-section';
@@ -17,7 +26,6 @@ export default function MaterialDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { showError, showInfo, showSuccess } = useFeedbackToast();
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const materialId = typeof params.id === 'string' ? params.id : params.id?.[0];
 
   const {
@@ -41,9 +49,25 @@ export default function MaterialDetailPage() {
     handleCancelEdit,
     handleEditChange,
     handleSaveEdit,
-    handleDelete,
     getPriceChangePercent,
   } = useMaterialDetailViewModel(materialId);
+
+  const {
+    deleteTarget,
+    dependencies,
+    isChecking,
+    isDeleting,
+    isConfirmOpen,
+    isDependencyModalOpen,
+    requestDelete,
+    confirmDelete,
+    cancelDelete,
+    setIsConfirmOpen,
+    setIsDependencyModalOpen,
+  } = useMaterialDelete({
+    onDeleted: () => { showSuccess('자재를 삭제했습니다.'); router.push('/materials/items'); },
+    onError: (msg) => showError(msg),
+  });
 
   const handleSave = async () => {
     const result = await handleSaveEdit();
@@ -57,17 +81,6 @@ export default function MaterialDetailPage() {
       return;
     }
     showSuccess('자재 정보를 저장했습니다.');
-  };
-
-  const handleDeleteAndExit = async () => {
-    const result = await handleDelete();
-    if (!result.ok) {
-      showError(result.errorMessage ?? '자재 삭제 중 오류가 발생했습니다.');
-      return;
-    }
-    showSuccess('자재를 삭제했습니다.');
-    setIsDeleteDialogOpen(false);
-    router.push('/materials/items');
   };
 
   if (!material) {
@@ -128,10 +141,11 @@ export default function MaterialDetailPage() {
                   <Pencil size={14} /> 편집
                 </button>
                 <button
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  className="inline-flex items-center gap-2 px-3 py-2 border border-destructive text-destructive rounded-md text-sm hover:bg-destructive/10"
+                  onClick={() => material && requestDelete(material)}
+                  disabled={isChecking}
+                  className="inline-flex items-center gap-2 px-3 py-2 border border-destructive text-destructive rounded-md text-sm hover:bg-destructive/10 disabled:opacity-50"
                 >
-                  <Trash2 size={14} /> 삭제
+                  {isChecking ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} 삭제
                 </button>
               </>
             )}
@@ -294,15 +308,50 @@ export default function MaterialDetailPage() {
       </div>
 
       <ConfirmDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        title="자재를 삭제하시겠습니까?"
-        description={`삭제 대상: ${material.name}`}
+        open={isConfirmOpen}
+        onOpenChange={setIsConfirmOpen}
+        title="자재 삭제"
+        description={`"${deleteTarget?.name ?? ''}" 자재를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
         confirmLabel="삭제"
-        cancelLabel="취소"
         confirmVariant="destructive"
-        onConfirm={() => void handleDeleteAndExit()}
+        confirmDisabled={isDeleting}
+        onConfirm={confirmDelete}
       />
+
+      <AlertDialog open={isDependencyModalOpen} onOpenChange={setIsDependencyModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-destructive" />
+              자재 삭제 불가
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{deleteTarget?.name}&quot; 자재가 다른 데이터에서 사용 중이므로 삭제할 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {dependencies && (
+            <div className="space-y-2 text-sm">
+              {dependencies.items.map((dep) => (
+                <div key={dep.type} className="flex items-start gap-2 p-2 bg-muted/50 rounded">
+                  <span className="font-medium shrink-0">{dep.label}</span>
+                  <span className="text-muted-foreground">{dep.count}건</span>
+                  {dep.samples.length > 0 && (
+                    <span className="text-xs text-muted-foreground truncate">
+                      ({dep.samples.join(', ')})
+                    </span>
+                  )}
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground pt-1">
+                관련 데이터를 먼저 삭제한 후 자재를 삭제해 주세요.
+              </p>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelDelete}>닫기</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import type {
   IStockMovementRepository,
   IMaterialPriceRepository,
   ISteelTagRepository,
+  MaterialDependencies,
 } from '@/domain/materials/ports';
 import type { Material, Stock, StockMovement, MaterialPrice, SteelTag } from '@/domain/materials/entities';
 import { generateId, type QueryRangeOptions, type MaterialPageQuery, type PageResult, type InventoryStats } from '@/domain/shared/types';
@@ -14,6 +15,8 @@ import {
   mockMaterialPrices,
   initialSteelTags,
 } from '@/lib/mock-data';
+
+const inMemoryStockState: Stock[] = [...mockStocks];
 
 export class InMemoryMaterialRepository implements IMaterialRepository {
   private data: Material[] = [...mockMaterials];
@@ -55,7 +58,7 @@ export class InMemoryMaterialRepository implements IMaterialRepository {
   async findPage(query: MaterialPageQuery): Promise<PageResult<Material>> {
     let filtered = this.data;
     if (query.lowStockOnly) {
-      const stockByMaterialId = new Map(mockStocks.map(s => [s.material_id, s]));
+      const stockByMaterialId = new Map(inMemoryStockState.map(s => [s.material_id, s]));
       filtered = filtered.filter(m => {
         const stock = stockByMaterialId.get(m.id);
         return (stock?.quantity ?? 0) < (m.safety_stock ?? 0);
@@ -75,7 +78,7 @@ export class InMemoryMaterialRepository implements IMaterialRepository {
   }
 
   async getInventoryStats(): Promise<InventoryStats> {
-    const stockByMaterialId = new Map(mockStocks.map(s => [s.material_id, s]));
+    const stockByMaterialId = new Map(inMemoryStockState.map(s => [s.material_id, s]));
     let lowStockCount = 0;
     let totalValue = 0;
     for (const m of this.data) {
@@ -87,10 +90,15 @@ export class InMemoryMaterialRepository implements IMaterialRepository {
     }
     return { totalItems: this.data.length, lowStockCount, totalValue };
   }
+
+  async checkDependencies(id: string): Promise<MaterialDependencies> {
+    void id;
+    return { hasDependencies: false, totalCount: 0, items: [] };
+  }
 }
 
 export class InMemoryStockRepository implements IStockRepository {
-  private data: Stock[] = [...mockStocks];
+  private data: Stock[] = inMemoryStockState;
 
   async findAll(options?: QueryRangeOptions): Promise<Stock[]> {
     if (!options?.limit) return this.data;

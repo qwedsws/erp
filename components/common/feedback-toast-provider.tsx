@@ -1,9 +1,7 @@
 'use client';
 
 import React, {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -11,9 +9,14 @@ import React, {
 } from 'react';
 import { CheckCircle2, Info, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  FeedbackToastContext,
+  type FeedbackToastContextValue,
+  type ToastOptions,
+  type ToastVariant,
+  useFeedbackToast,
+} from '@/hooks/shared/useFeedbackToast';
 import { cn } from '@/lib/utils';
-
-type ToastVariant = 'success' | 'error' | 'info';
 
 interface ToastItem {
   id: number;
@@ -22,23 +25,7 @@ interface ToastItem {
   variant: ToastVariant;
 }
 
-interface ToastOptions {
-  title: string;
-  description?: string;
-  variant?: ToastVariant;
-  durationMs?: number;
-}
-
-interface FeedbackToastContextValue {
-  showToast: (options: ToastOptions) => void;
-  showSuccess: (description: string, title?: string) => void;
-  showError: (description: string, title?: string) => void;
-  showInfo: (description: string, title?: string) => void;
-}
-
 const TOAST_DURATION_MS = 3200;
-
-const FeedbackToastContext = createContext<FeedbackToastContextValue | null>(null);
 
 export function FeedbackToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -138,10 +125,4 @@ export function FeedbackToastProvider({ children }: { children: React.ReactNode 
   );
 }
 
-export function useFeedbackToast() {
-  const context = useContext(FeedbackToastContext);
-  if (!context) {
-    throw new Error('useFeedbackToast must be used within FeedbackToastProvider');
-  }
-  return context;
-}
+export { useFeedbackToast };

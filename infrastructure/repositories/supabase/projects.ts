@@ -25,7 +25,9 @@ export class SupabaseProjectRepository implements IProjectRepository {
   async update(id: string, data: Partial<Project>): Promise<Project> {
     const updated = { ...data, updated_at: new Date().toISOString() };
     await sb.updateProjectDB(id, updated);
-    return { ...updated, id } as Project;
+    const project = await sb.fetchProjectById(id);
+    if (!project) throw new Error(`Project not found after update: ${id}`);
+    return project;
   }
 
   async delete(id: string): Promise<void> {
@@ -65,7 +67,9 @@ export class SupabaseProcessStepRepository implements IProcessStepRepository {
   async update(id: string, data: Partial<ProcessStep>): Promise<ProcessStep> {
     const updated = { ...data, updated_at: new Date().toISOString() };
     await sb.updateProcessStepDB(id, updated);
-    return { ...updated, id } as ProcessStep;
+    const processStep = await sb.fetchProcessStepById(id);
+    if (!processStep) throw new Error(`ProcessStep not found after update: ${id}`);
+    return processStep;
   }
 
   async delete(id: string): Promise<void> {

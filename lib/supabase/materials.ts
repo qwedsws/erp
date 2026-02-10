@@ -10,6 +10,7 @@ import type {
   MaterialPrice,
   SteelTag,
 } from '@/domain/shared/entities'
+import type { MaterialDependencies, MaterialDependencyItem } from '@/domain/materials/ports'
 import type {
   QueryRangeOptions,
   PageResult,
@@ -24,6 +25,11 @@ const supabase = createClient()
 
 function logSupabaseError(label: string, error: { message?: string; code?: string; details?: string; hint?: string }) {
   console.error(`${label}:`, error.message ?? 'unknown', `[code=${error.code}]`, error.details ?? '', error.hint ?? '')
+}
+
+function throwSupabaseError(label: string, error: { message?: string; code?: string; details?: string; hint?: string }) {
+  logSupabaseError(label, error)
+  throw error
 }
 
 type PurchaseOrderRow = PurchaseOrder & { purchase_order_items?: PurchaseOrderItem[] | null }
@@ -422,88 +428,88 @@ export async function fetchSuppliersPage(query: SupplierPageQuery): Promise<Page
 // -- Suppliers --
 export async function insertSupplier(supplier: Supplier) {
   const { error } = await supabase.from('suppliers').insert(supplier)
-  if (error) logSupabaseError('insertSupplier', error)
+  if (error) throwSupabaseError('insertSupplier', error)
 }
 
 export async function updateSupplierDB(id: string, data: Partial<Supplier>) {
   const { error } = await supabase.from('suppliers').update(data).eq('id', id)
-  if (error) logSupabaseError('updateSupplier', error)
+  if (error) throwSupabaseError('updateSupplier', error)
 }
 
 export async function deleteSupplierDB(id: string) {
   const { error } = await supabase.from('suppliers').delete().eq('id', id)
-  if (error) logSupabaseError('deleteSupplier', error)
+  if (error) throwSupabaseError('deleteSupplier', error)
 }
 
 // -- Materials --
 export async function insertMaterial(material: Material) {
   const { error } = await supabase.from('materials').insert(material)
-  if (error) logSupabaseError('insertMaterial', error)
+  if (error) throwSupabaseError('insertMaterial', error)
 }
 
 export async function updateMaterialDB(id: string, data: Partial<Material>) {
   const { error } = await supabase.from('materials').update(data).eq('id', id)
-  if (error) logSupabaseError('updateMaterial', error)
+  if (error) throwSupabaseError('updateMaterial', error)
 }
 
 export async function deleteMaterialDB(id: string) {
   const { error } = await supabase.from('materials').delete().eq('id', id)
-  if (error) logSupabaseError('deleteMaterial', error)
+  if (error) throwSupabaseError('deleteMaterial', error)
 }
 
 // -- Stocks --
 export async function upsertStock(stock: Stock) {
   const { error } = await supabase.from('stocks').upsert(stock, { onConflict: 'id' })
-  if (error) logSupabaseError('upsertStock', error)
+  if (error) throwSupabaseError('upsertStock', error)
 }
 
 export async function upsertStocks(stocks: Stock[]) {
   if (stocks.length === 0) return
   const { error } = await supabase.from('stocks').upsert(stocks, { onConflict: 'id' })
-  if (error) logSupabaseError('upsertStocks', error)
+  if (error) throwSupabaseError('upsertStocks', error)
 }
 
 // -- Stock Movements --
 export async function insertStockMovement(sm: StockMovement) {
   const { error } = await supabase.from('stock_movements').insert(sm)
-  if (error) logSupabaseError('insertStockMovement', error)
+  if (error) throwSupabaseError('insertStockMovement', error)
 }
 
 export async function insertStockMovements(movements: StockMovement[]) {
   if (movements.length === 0) return
   const { error } = await supabase.from('stock_movements').insert(movements)
-  if (error) logSupabaseError('insertStockMovements', error)
+  if (error) throwSupabaseError('insertStockMovements', error)
 }
 
 // -- Purchase Orders --
 export async function insertPurchaseOrder(po: PurchaseOrder) {
   const { items, ...poData } = po
   const { error: poError } = await supabase.from('purchase_orders').insert(poData)
-  if (poError) { logSupabaseError('insertPO', poError); return }
+  if (poError) throwSupabaseError('insertPO', poError)
   if (items.length > 0) {
     const itemRows = items.map(item => ({ ...item, purchase_order_id: po.id }))
     const { error: itemError } = await supabase.from('purchase_order_items').insert(itemRows)
-    if (itemError) logSupabaseError('insertPOItems', itemError)
+    if (itemError) throwSupabaseError('insertPOItems', itemError)
   }
 }
 
 export async function updatePurchaseOrderDB(id: string, data: Partial<PurchaseOrder>) {
   const { items, ...rest } = data as Partial<PurchaseOrder> & { items?: PurchaseOrderItem[] }
   const { error } = await supabase.from('purchase_orders').update(rest).eq('id', id)
-  if (error) logSupabaseError('updatePO', error)
+  if (error) throwSupabaseError('updatePO', error)
 
   if (items && items.length > 0) {
     const rows = items.map(item => ({ ...item, purchase_order_id: id }))
     const { error: itemError } = await supabase
       .from('purchase_order_items')
       .upsert(rows, { onConflict: 'id' })
-    if (itemError) logSupabaseError('updatePOItems', itemError)
+    if (itemError) throwSupabaseError('updatePOItems', itemError)
   }
 }
 
 export async function deletePurchaseOrderDB(id: string) {
   const { error } = await supabase.from('purchase_orders').delete().eq('id', id)
-  if (error) logSupabaseError('deletePO', error)
+  if (error) throwSupabaseError('deletePO', error)
 }
 
 // -- Purchase Requests --
@@ -520,7 +526,12 @@ export async function insertPurchaseRequests(prs: PurchaseRequest[]) {
 
 export async function updatePurchaseRequestDB(id: string, data: Partial<PurchaseRequest>) {
   const { error } = await supabase.from('purchase_requests').update(data).eq('id', id)
-  if (error) logSupabaseError('updatePR', error)
+  if (error) throwSupabaseError('updatePR', error)
+}
+
+export async function deletePurchaseRequestDB(id: string) {
+  const { error } = await supabase.from('purchase_requests').delete().eq('id', id)
+  if (error) throwSupabaseError('deletePR', error)
 }
 
 // -- Steel Tags --
@@ -544,32 +555,94 @@ export async function fetchSteelTagById(id: string): Promise<SteelTag | null> {
 
 export async function insertSteelTag(tag: SteelTag) {
   const { error } = await supabase.from('steel_tags').insert(tag)
-  if (error) logSupabaseError('insertSteelTag', error)
+  if (error) throwSupabaseError('insertSteelTag', error)
 }
 
 export async function updateSteelTagDB(id: string, data: Partial<SteelTag>) {
   const { error } = await supabase.from('steel_tags').update(data).eq('id', id)
-  if (error) logSupabaseError('updateSteelTag', error)
+  if (error) throwSupabaseError('updateSteelTag', error)
 }
 
 export async function deleteSteelTagDB(id: string) {
   const { error } = await supabase.from('steel_tags').delete().eq('id', id)
-  if (error) logSupabaseError('deleteSteelTag', error)
+  if (error) throwSupabaseError('deleteSteelTag', error)
 }
 
 // -- Material Prices --
 export async function insertMaterialPrice(mp: MaterialPrice) {
   const { error } = await supabase.from('material_prices').insert(mp)
-  if (error) logSupabaseError('insertMaterialPrice', error)
+  if (error) throwSupabaseError('insertMaterialPrice', error)
 }
 
 export async function insertMaterialPrices(prices: MaterialPrice[]) {
   if (prices.length === 0) return
   const { error } = await supabase.from('material_prices').insert(prices)
-  if (error) logSupabaseError('insertMaterialPrices', error)
+  if (error) throwSupabaseError('insertMaterialPrices', error)
 }
 
 export async function deleteMaterialPriceDB(id: string) {
   const { error } = await supabase.from('material_prices').delete().eq('id', id)
-  if (error) logSupabaseError('deleteMaterialPrice', error)
+  if (error) throwSupabaseError('deleteMaterialPrice', error)
+}
+
+// ============ DEPENDENCY CHECK ============
+
+export async function fetchMaterialDependencies(materialId: string): Promise<MaterialDependencies> {
+  const [stockRes, movementRes, prRes, poItemRes, priceRes, tagRes] = await Promise.all([
+    supabase.from('stocks').select('id', { count: 'exact', head: true }).eq('material_id', materialId),
+    supabase.from('stock_movements').select('id, movement_type, quantity', { count: 'exact' }).eq('material_id', materialId).order('created_at', { ascending: false }).limit(5),
+    supabase.from('purchase_requests').select('id, pr_no', { count: 'exact' }).eq('material_id', materialId).order('created_at', { ascending: false }).limit(5),
+    supabase.from('purchase_order_items').select('id, purchase_order_id', { count: 'exact' }).eq('material_id', materialId).limit(5),
+    supabase.from('material_prices').select('id', { count: 'exact', head: true }).eq('material_id', materialId),
+    supabase.from('steel_tags').select('id, tag_no', { count: 'exact' }).eq('material_id', materialId).order('created_at', { ascending: false }).limit(5),
+  ])
+
+  const items: MaterialDependencyItem[] = []
+
+  const stockCount = stockRes.count ?? 0
+  if (stockCount > 0) {
+    items.push({ type: 'stock', label: '재고', count: stockCount, samples: [] })
+  }
+
+  const movementCount = movementRes.count ?? 0
+  if (movementCount > 0) {
+    const samples = (movementRes.data ?? []).map(m => `${m.movement_type} ${m.quantity}`)
+    items.push({ type: 'stock_movement', label: '재고이동', count: movementCount, samples })
+  }
+
+  const prCount = prRes.count ?? 0
+  if (prCount > 0) {
+    const samples = (prRes.data ?? []).map(p => p.pr_no as string).filter(Boolean)
+    items.push({ type: 'purchase_request', label: '구매요청', count: prCount, samples })
+  }
+
+  const poItemCount = poItemRes.count ?? 0
+  if (poItemCount > 0) {
+    const poIds = [...new Set((poItemRes.data ?? []).map(i => i.purchase_order_id as string))]
+    let poSamples: string[] = []
+    if (poIds.length > 0) {
+      const { data: pos } = await supabase.from('purchase_orders').select('po_no').in('id', poIds).limit(5)
+      poSamples = (pos ?? []).map(p => p.po_no as string).filter(Boolean)
+    }
+    items.push({ type: 'purchase_order_item', label: '구매발주 품목', count: poItemCount, samples: poSamples })
+  }
+
+  const priceCount = priceRes.count ?? 0
+  if (priceCount > 0) {
+    items.push({ type: 'material_price', label: '가격이력', count: priceCount, samples: [] })
+  }
+
+  const tagCount = tagRes.count ?? 0
+  if (tagCount > 0) {
+    const samples = (tagRes.data ?? []).map(t => t.tag_no as string).filter(Boolean)
+    items.push({ type: 'steel_tag', label: '강재태그', count: tagCount, samples })
+  }
+
+  const totalCount = items.reduce((sum, item) => sum + item.count, 0)
+
+  return {
+    hasDependencies: totalCount > 0,
+    totalCount,
+    items,
+  }
 }

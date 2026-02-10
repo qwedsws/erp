@@ -8,9 +8,9 @@ import {
 } from '@/infrastructure/di/container';
 import { ProgressDesignStepUseCase } from '@/domain/projects/use-cases/progress-design-step';
 import {
-  CreatePurchaseRequestsFromBomUseCase,
   type BomItem,
 } from '@/domain/procurement/use-cases/create-purchase-requests-from-bom';
+import { CompleteBomStepUseCase } from '@/domain/projects/use-cases/complete-bom-step';
 
 export function useProcessSteps() {
   const processSteps = useERPStore((s) => s.processSteps);
@@ -27,7 +27,11 @@ export function useProcessSteps() {
     processStepRepo,
     projectRepo,
   );
-  const createPRsFromBomUseCase = new CreatePurchaseRequestsFromBomUseCase(prRepo);
+  const completeBomStepUseCase = new CompleteBomStepUseCase(
+    processStepRepo,
+    projectRepo,
+    prRepo,
+  );
 
   const addProcessStep = async (data: Parameters<typeof processStepRepo.create>[0]) => {
     const step = await processStepRepo.create(data);
@@ -70,39 +74,29 @@ export function useProcessSteps() {
   };
 
   const completeBomStep = async (stepId: string, bomItems: BomItem[]) => {
-    // 1. Find the step to get the project_id
     const step = processSteps.find((s) => s.id === stepId);
     if (!step) throw new Error(`ProcessStep not found: ${stepId}`);
 
-    // 2. Complete the DESIGN_BOM step via progressDesignStep (sets status + activates next)
-    const designResult = await progressDesignStep(step.project_id, stepId, 'COMPLETE');
-
-    // 3. Update the step outputs with BOM data
-    await processStepRepo.update(stepId, {
-      outputs: { ...designResult.updatedStep.outputs, bom: bomItems },
-    });
-    updateInCache(stepId, {
-      outputs: { ...designResult.updatedStep.outputs, bom: bomItems },
-    });
-
-    // 4. Create purchase requests from BOM items
-    const prResult = await createPRsFromBomUseCase.execute({
+    const result = await completeBomStepUseCase.execute({
       projectId: step.project_id,
+      stepId,
+      assigneeId: step.assignee_id,
       bomItems,
-      requestedBy: step.assignee_id ?? 'SYSTEM',
     });
+    if (!result.ok) throw result.error;
 
-    if (!prResult.ok) throw prResult.error;
-
-    // 5. Update PR cache
-    for (const pr of prResult.value.purchaseRequests) {
+    updateInCache(stepId, result.value.updatedStep);
+    if (result.value.activatedNextStep) {
+      updateInCache(result.value.activatedNextStep.id, result.value.activatedNextStep);
+    }
+    if (result.value.updatedProject) {
+      updateProjectInCache(result.value.updatedProject.id, result.value.updatedProject);
+    }
+    for (const pr of result.value.createdPurchaseRequests) {
       addPurchaseRequestToCache(pr);
     }
 
-    return {
-      ...designResult,
-      createdPurchaseRequests: prResult.value.purchaseRequests,
-    };
+    return result.value;
   };
 
   const deleteProcessStep = async (id: string) => {

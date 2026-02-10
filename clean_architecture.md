@@ -5,7 +5,7 @@
 MoldERP는 **클린 아키텍처(Clean Architecture)** 원칙을 적용하여 비즈니스 로직을 UI 및 인프라로부터 완전히 분리했다.
 이를 통해 테스트 용이성, 유지보수성, Repository 구현체 교체의 용이성(InMemory/Supabase)을 확보한다.
 
-**현재 상태**: 클린 아키텍처 마이그레이션 완료. 7개 도메인 모두 Domain/Infrastructure/Store/Hooks 레이어로 분리됨.
+**현재 상태**: 클린 아키텍처 마이그레이션 완료. 8개 도메인 모두 Domain/Infrastructure/Store/Hooks 레이어로 분리됨.
 
 ---
 
@@ -90,7 +90,7 @@ MoldERP는 **클린 아키텍처(Clean Architecture)** 원칙을 적용하여 �
 │   ├── di/
 │   │   └── container.ts              # DI 컨테이너 — 싱글톤 팩토리 함수 (getXRepository)
 │   └── repositories/
-│       ├── in-memory/                # InMemory 구현체 (7개 도메인 전체 구현됨)
+│       ├── in-memory/                # InMemory 구현체 (8개 도메인 전체 구현됨)
 │       │   ├── sales.ts              # InMemoryCustomerRepository 등 3개
 │       │   ├── projects.ts           # InMemoryProjectRepository 등 2개
 │       │   ├── production.ts         # InMemoryWorkOrderRepository 등 2개
@@ -98,12 +98,14 @@ MoldERP는 **클린 아키텍처(Clean Architecture)** 원칙을 적용하여 �
 │       │   ├── procurement.ts        # InMemorySupplierRepository 등 3개
 │       │   ├── quality.ts            # InMemoryInspectionRepository 등 3개
 │       │   └── admin.ts              # InMemoryProfileRepository
-│       └── supabase/                 # Supabase 구현체 (materials, procurement만 구현됨)
+│       └── supabase/                 # Supabase 구현체 (materials, procurement, projects, admin 구현됨)
 │           ├── materials.ts          # SupabaseMaterialRepository 등 5개
-│           └── procurement.ts        # SupabaseSupplierRepository 등 3개
+│           ├── procurement.ts        # SupabaseSupplierRepository 등 3개
+│           ├── projects.ts           # SupabaseProjectRepository 등 2개
+│           └── admin.ts              # SupabaseProfileRepository
 │
 ├── store/                            # Store 레이어 (Zustand — 캐시 전용, 비즈니스 로직 없음)
-│   ├── index.ts                      # 8개 슬라이스 결합 (7 도메인 + 1 legacy-actions)
+│   ├── index.ts                      # 8개 슬라이스 결합 (materials, procurement, sales, projects, production, quality, admin, accounting)
 │   ├── materials-slice.ts
 │   ├── procurement-slice.ts
 │   ├── sales-slice.ts
@@ -111,9 +113,9 @@ MoldERP는 **클린 아키텍처(Clean Architecture)** 원칙을 적용하여 �
 │   ├── production-slice.ts
 │   ├── quality-slice.ts
 │   ├── admin-slice.ts
-│   └── legacy-actions-slice.ts       # 하위 호환성: addCustomer, stockOut 등 레거시 액션
+│   └── accounting-slice.ts
 │
-├── hooks/                            # Hooks 레이어 (React 브리지 — 40개 훅)
+├── hooks/                            # Hooks 레이어 (React 브리지 — 56개 훅)
 │   ├── materials/
 │   │   ├── useMaterials.ts
 │   │   ├── useStocks.ts
@@ -137,7 +139,7 @@ MoldERP는 **클린 아키텍처(Clean Architecture)** 원칙을 적용하여 �
 │   ├── index.ts                      # domain/shared/entities 재수출
 │   └── display.ts                    # 상태 표시 맵 (PROJECT_STATUS_MAP 등)
 │
-├── app/                              # Presentation 레이어 (47개 페이지 라우트)
+├── app/                              # Presentation 레이어 (54개 페이지 라우트)
 │   ├── page.tsx                      # 대시보드
 │   ├── sales/                        # 영업 (4 페이지)
 │   ├── projects/                     # 프로젝트 (10 페이지)
@@ -264,7 +266,7 @@ export interface ISteelTagRepository {
 }
 ```
 
-전체 18개 Repository Port가 7개 도메인에 분산되어 정의됨.
+전체 24개 Repository Port가 8개 도메인에 분산되어 정의됨.
 
 ### 4.3 Domain Service (도메인 서비스)
 
@@ -411,15 +413,16 @@ export class ReceivePurchaseOrderUseCase {
 
 **유스케이스 통계**:
 - materials: 6개 (receive-purchase-order, stock-out, adjust-stock, bulk-adjust-stock, receive-direct-stock, transition-steel-tag-status)
-- procurement: 2개 (convert-requests-to-po, create-purchase-order)
+- procurement: 3개 (convert-requests-to-po, create-purchase-order, create-purchase-requests-from-bom)
 - sales: 2개 (create-order-with-project, create-project-from-order)
 - projects: 1개 (progress-design-step)
+- accounting: 1개 (post-accounting-event)
 
 ### 4.5 Repository 구현체 (Infrastructure)
 
 Port의 실제 구현. InMemory와 Supabase 두 가지 구현체가 공존한다.
 
-**InMemory 구현체** (전체 7개 도메인 구현됨):
+**InMemory 구현체** (전체 8개 도메인 구현됨):
 
 ```typescript
 // infrastructure/repositories/in-memory/materials.ts (실제 코드)
@@ -495,7 +498,7 @@ export class InMemoryStockRepository implements IStockRepository {
 // InMemoryStockMovementRepository, InMemoryMaterialPriceRepository, InMemorySteelTagRepository도 동일 패턴
 ```
 
-**Supabase 구현체** (materials, procurement만 구현됨):
+**Supabase 구현체** (materials, procurement, projects, admin 구현됨):
 
 ```typescript
 // infrastructure/repositories/supabase/materials.ts (일부)
@@ -601,7 +604,7 @@ const USE_SUPABASE_REPOS = Boolean(
 let customerRepo: ICustomerRepository | null = null;
 let orderRepo: IOrderRepository | null = null;
 let materialRepo: IMaterialRepository | null = null;
-// ... (18개 Repository 싱글톤 변수)
+// ... (24개 Repository 싱글톤 변수)
 
 export function getCustomerRepository(): ICustomerRepository {
   if (!customerRepo) {
@@ -624,13 +627,13 @@ export function getStockRepository(): IStockRepository {
   return stockRepo;
 }
 
-// ... (총 18개 getXRepository() 팩토리 함수)
+// ... (총 24개 getXRepository() 팩토리 함수)
 ```
 
 **패턴**:
 - 각 Repository마다 `getXRepository()` 팩토리 함수
 - 첫 호출 시 싱글톤 인스턴스 생성, 이후 재사용
-- `USE_SUPABASE_REPOS` 플래그로 구현체 선택 (materials, procurement만 Supabase 구현 있음)
+- `USE_SUPABASE_REPOS` 플래그로 구현체 선택 (materials, procurement, projects, admin Supabase 구현 있음)
 
 ### 4.7 Store Slice (Zustand — 얇은 캐시)
 
@@ -843,7 +846,7 @@ export function useReceivingWorkflows() {
 }
 ```
 
-**훅 통계**: 총 40개 훅 파일 (materials, procurement, sales, projects, production, quality, admin, helpers 디렉토리에 분산).
+**훅 통계**: 총 56개 훅 파일 (materials, procurement, sales, projects, production, quality, admin, accounting, shared 디렉토리에 분산).
 
 ---
 
@@ -1279,25 +1282,26 @@ describe('ReceivePurchaseOrderUseCase', () => {
 
 ### 구현 완료
 
-- 7개 도메인 모두 클린 아키텍처로 분리 완료
+- 8개 도메인 모두 클린 아키텍처로 분리 완료
 - 43개 엔티티 타입 정의 (`domain/shared/entities.ts`)
-- 18개 Repository Port 인터페이스 (7개 도메인에 분산)
-- 11개 Use Case 구현
+- 24개 Repository Port 인터페이스 (8개 도메인에 분산)
+- 13개 Use Case 구현
   - materials: 6개
-  - procurement: 2개
+  - procurement: 3개
   - sales: 2개
   - projects: 1개
-- 7개 InMemory Repository 구현 (전체 도메인)
-- 2개 Supabase Repository 구현 (materials, procurement)
-- 7개 Zustand Store Slice
-- 40개 Domain Hook
-- 47개 페이지 라우트
+  - accounting: 1개
+- 8개 InMemory Repository 구현 (전체 도메인)
+- 4개 Supabase Repository 구현 (materials, procurement, projects, admin)
+- 8개 Zustand Store Slice
+- 56개 Domain Hook
+- 54개 페이지 라우트
 - ESLint 경계 강제 규칙 적용
 
 ### 향후 작업
 
-1. **Supabase Repository 확장**: 나머지 5개 도메인(sales, projects, production, quality, admin)의 Supabase 구현체 추가
-2. **Use Case 추가**: 복잡한 비즈니스 워크플로우를 더 많이 Use Case로 추출 (현재 11개)
+1. **Supabase Repository 확장**: 나머지 4개 도메인(sales, production, quality, accounting)의 Supabase 구현체 추가
+2. **Use Case 추가**: 복잡한 비즈니스 워크플로우를 더 많이 Use Case로 추출 (현재 13개)
 3. **테스트 작성**: Jest/Vitest로 Domain Service 및 Use Case 단위 테스트 추가
 4. **레거시 액션 제거**: `legacy-actions-slice.ts`에 남아 있는 레거시 액션들을 점진적으로 Domain Hook으로 전환
 5. **에러 핸들링 강화**: `Result<T>` 타입을 더 많은 곳에서 활용하여 에러 처리 명시화

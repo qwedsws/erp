@@ -7,7 +7,7 @@ import { useSuppliers } from '@/hooks/procurement/useSuppliers';
 import { useMaterials } from '@/hooks/materials/useMaterials';
 import { useProfiles } from '@/hooks/admin/useProfiles';
 import { useStocks } from '@/hooks/materials/useStocks';
-import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
+import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
 import type { Material, Supplier, Profile, PurchaseOrder, PurchaseOrderItem, StockMovement } from '@/domain/shared/entities';
 
 // ── Derived types ──────────────────────────────────────────────────────

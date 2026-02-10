@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProjects } from '@/hooks/projects/useProjects';
 import { useOrders } from '@/hooks/sales/useOrders';
-import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
+import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
 import type { MoldType, Priority } from '@/domain/shared/entities';
 
 export interface ProjectRow {

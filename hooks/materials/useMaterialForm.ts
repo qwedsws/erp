@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
+import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
 import type { MaterialCategory } from '@/domain/shared/entities';
-import { STEEL_GRADE_DENSITY } from '@/types/display';
+import { STEEL_GRADE_DENSITY } from '@/domain/materials/services';
 import { calcSteelWeight, calcSteelPrice } from '@/lib/utils';
 import { useMaterials } from '@/hooks/materials/useMaterials';
 import type {

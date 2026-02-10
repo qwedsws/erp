@@ -6,7 +6,7 @@ import { useProfiles } from '@/hooks/admin/useProfiles';
 import { useSuppliers } from '@/hooks/procurement/useSuppliers';
 import { usePurchaseRequests } from '@/hooks/procurement/usePurchaseRequests';
 import { usePurchaseRequestListQuery } from '@/hooks/procurement/usePurchaseRequestListQuery';
-import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
+import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
 import type { PurchaseRequestStatus } from '@/domain/shared/entities';
 
 // --- Public types ---

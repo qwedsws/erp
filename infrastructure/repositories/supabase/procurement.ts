@@ -27,7 +27,9 @@ export class SupabaseSupplierRepository implements ISupplierRepository {
   async update(id: string, data: Partial<Supplier>): Promise<Supplier> {
     const updated = { ...data, updated_at: new Date().toISOString() };
     await sb.updateSupplierDB(id, updated);
-    return { ...updated, id } as Supplier;
+    const supplier = await sb.fetchSupplierById(id);
+    if (!supplier) throw new Error(`Supplier not found after update: ${id}`);
+    return supplier;
   }
 
   async delete(id: string): Promise<void> {
@@ -64,7 +66,9 @@ export class SupabasePurchaseOrderRepository implements IPurchaseOrderRepository
   async update(id: string, data: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
     const updated = { ...data, updated_at: new Date().toISOString() };
     await sb.updatePurchaseOrderDB(id, updated);
-    return { ...updated, id } as PurchaseOrder;
+    const purchaseOrder = await sb.fetchPurchaseOrderById(id);
+    if (!purchaseOrder) throw new Error(`PurchaseOrder not found after update: ${id}`);
+    return purchaseOrder;
   }
 
   async delete(id: string): Promise<void> {
@@ -114,12 +118,12 @@ export class SupabasePurchaseRequestRepository implements IPurchaseRequestReposi
   async update(id: string, data: Partial<PurchaseRequest>): Promise<PurchaseRequest> {
     const updated = { ...data, updated_at: new Date().toISOString() };
     await sb.updatePurchaseRequestDB(id, updated);
-    return { ...updated, id } as PurchaseRequest;
+    const purchaseRequest = await sb.fetchPurchaseRequestById(id);
+    if (!purchaseRequest) throw new Error(`PurchaseRequest not found after update: ${id}`);
+    return purchaseRequest;
   }
 
   async delete(id: string): Promise<void> {
-    // Supabase materials.ts doesn't expose a deletePurchaseRequest function
-    // For now, this is a no-op until the Supabase layer adds it
-    console.warn(`deletePurchaseRequest not implemented in Supabase layer (id: ${id})`);
+    await sb.deletePurchaseRequestDB(id);
   }
 }

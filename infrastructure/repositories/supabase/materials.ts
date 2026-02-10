@@ -4,6 +4,7 @@ import type {
   IStockMovementRepository,
   IMaterialPriceRepository,
   ISteelTagRepository,
+  MaterialDependencies,
 } from '@/domain/materials/ports';
 import type { Material, Stock, StockMovement, MaterialPrice, SteelTag } from '@/domain/materials/entities';
 import type { QueryRangeOptions, MaterialPageQuery, PageResult, InventoryStats } from '@/domain/shared/types';
@@ -33,7 +34,9 @@ export class SupabaseMaterialRepository implements IMaterialRepository {
   async update(id: string, data: Partial<Material>): Promise<Material> {
     const updated = { ...data, updated_at: new Date().toISOString() };
     await sb.updateMaterialDB(id, updated);
-    return { ...updated, id } as Material;
+    const material = await sb.fetchMaterialById(id);
+    if (!material) throw new Error(`Material not found after update: ${id}`);
+    return material;
   }
 
   async delete(id: string): Promise<void> {
@@ -46,6 +49,10 @@ export class SupabaseMaterialRepository implements IMaterialRepository {
 
   async getInventoryStats(): Promise<InventoryStats> {
     return sb.fetchInventoryStats();
+  }
+
+  async checkDependencies(id: string): Promise<MaterialDependencies> {
+    return sb.fetchMaterialDependencies(id);
   }
 }
 
@@ -155,7 +162,9 @@ export class SupabaseSteelTagRepository implements ISteelTagRepository {
   async update(id: string, data: Partial<SteelTag>): Promise<SteelTag> {
     const updated = { ...data, updated_at: new Date().toISOString() };
     await sb.updateSteelTagDB(id, updated);
-    return { ...updated, id } as SteelTag;
+    const steelTag = await sb.fetchSteelTagById(id);
+    if (!steelTag) throw new Error(`SteelTag not found after update: ${id}`);
+    return steelTag;
   }
 
   async delete(id: string): Promise<void> {

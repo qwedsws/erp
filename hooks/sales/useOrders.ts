@@ -19,7 +19,7 @@ import {
   CreateProjectFromOrderUseCase,
   type CreateProjectFromOrderInput,
 } from '@/domain/sales/use-cases/create-project-from-order';
-import { PostAccountingEventUseCase } from '@/domain/accounting/use-cases/post-accounting-event';
+import { PostOrderConfirmedAccountingUseCase } from '@/domain/sales/use-cases/post-order-confirmed-accounting';
 
 export function useOrders() {
   const orders = useERPStore((s) => s.orders);
@@ -41,8 +41,12 @@ export function useOrders() {
     stepRepo,
   );
   const createProjectFromOrderUseCase = new CreateProjectFromOrderUseCase(projectRepo);
-  const postAccountingEventUseCase = new PostAccountingEventUseCase(
-    getGLAccountRepository(), getJournalEntryRepository(), getAROpenItemRepository(), getAPOpenItemRepository(), getAccountingEventRepository(),
+  const postOrderConfirmedAccountingUseCase = new PostOrderConfirmedAccountingUseCase(
+    getGLAccountRepository(),
+    getJournalEntryRepository(),
+    getAROpenItemRepository(),
+    getAPOpenItemRepository(),
+    getAccountingEventRepository(),
   );
 
   const addOrder = async (data: Parameters<typeof orderRepo.create>[0]) => {
@@ -69,27 +73,13 @@ export function useOrders() {
       addProcessStepToCache(step);
     }
 
-    // Auto-journaling: ORDER_CONFIRMED
-    try {
-      const postResult = await postAccountingEventUseCase.execute({
-        source_type: 'ORDER',
-        source_id: result.value.order.id,
-        source_no: result.value.order.order_no,
-        event_type: 'ORDER_CONFIRMED',
-        payload: {
-          amount: result.value.order.total_amount || 0,
-          customer_id: result.value.order.customer_id,
-          order_no: result.value.order.order_no,
-          due_date: result.value.order.delivery_date,
-        },
-      });
-      if (postResult.ok) {
-        addJournalEntryToCache(postResult.value.journalEntry);
-        addAccountingEventToCache(postResult.value.event);
-        if (postResult.value.arItem) addAROpenItemToCache(postResult.value.arItem);
+    const accountingResult = await postOrderConfirmedAccountingUseCase.execute(result.value.order);
+    if (accountingResult.ok && accountingResult.value) {
+      addJournalEntryToCache(accountingResult.value.journalEntry);
+      addAccountingEventToCache(accountingResult.value.event);
+      if (accountingResult.value.arItem) {
+        addAROpenItemToCache(accountingResult.value.arItem);
       }
-    } catch {
-      // Silent fail — accounting should not block order creation
     }
 
     return result.value;

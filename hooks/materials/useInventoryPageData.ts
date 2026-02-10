@@ -5,7 +5,7 @@ import { useStocks } from '@/hooks/materials/useStocks';
 import { useProjects } from '@/hooks/projects/useProjects';
 import { useSteelTags } from '@/hooks/procurement/useSteelTags';
 import { useInventoryListQuery } from '@/hooks/materials/useInventoryListQuery';
-import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
+import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
 
 export function useInventoryPageData() {
   const {

@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/common/page-header';
 import { SearchSelect } from '@/components/common/search-select';
 import { DatePickerCell } from '@/components/common/date-picker-cell';
 import { useProjectForm } from '@/hooks/projects/useProjectForm';
-import type { MoldType, Priority } from '@/domain/shared/entities';
+import type { MoldType, Priority } from '@/types';
 
 const cellInput =
   'w-full h-8 px-2 rounded border border-input bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring';

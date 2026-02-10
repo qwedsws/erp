@@ -1,6 +1,19 @@
 import type { Material, Stock, StockMovement, MaterialPrice, SteelTag } from './entities';
 import type { QueryRangeOptions, MaterialPageQuery, PageResult, InventoryStats } from '@/domain/shared/types';
 
+export interface MaterialDependencyItem {
+  type: 'stock' | 'stock_movement' | 'purchase_request' | 'purchase_order_item' | 'material_price' | 'steel_tag';
+  label: string;
+  count: number;
+  samples: string[];
+}
+
+export interface MaterialDependencies {
+  hasDependencies: boolean;
+  totalCount: number;
+  items: MaterialDependencyItem[];
+}
+
 export interface IMaterialRepository {
   findAll(options?: QueryRangeOptions): Promise<Material[]>;
   findPage(query: MaterialPageQuery): Promise<PageResult<Material>>;
@@ -10,6 +23,7 @@ export interface IMaterialRepository {
   update(id: string, data: Partial<Material>): Promise<Material>;
   delete(id: string): Promise<void>;
   getInventoryStats(): Promise<InventoryStats>;
+  checkDependencies(id: string): Promise<MaterialDependencies>;
 }
 
 export interface IStockRepository {

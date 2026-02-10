@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, type ChangeEvent } from 'react';
-import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
+import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
 import { useMaterials } from '@/hooks/materials/useMaterials';
 import { usePurchaseOrders } from '@/hooks/procurement/usePurchaseOrders';
 import { useSuppliers } from '@/hooks/procurement/useSuppliers';

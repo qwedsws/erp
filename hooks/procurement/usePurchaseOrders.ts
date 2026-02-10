@@ -17,7 +17,7 @@ import {
   CreatePurchaseOrderUseCase,
   type CreatePurchaseOrderInput,
 } from '@/domain/procurement/use-cases/create-purchase-order';
-import { PostAccountingEventUseCase } from '@/domain/accounting/use-cases/post-accounting-event';
+import { PostPOOrderedAccountingUseCase } from '@/domain/procurement/use-cases/post-po-ordered-accounting';
 import { useAsyncAction } from '@/hooks/shared/useAsyncAction';
 
 export function usePurchaseOrders() {
@@ -42,41 +42,27 @@ export function usePurchaseOrders() {
     repo, stockRepo, movementRepo, priceRepo,
   );
   const createPurchaseOrderUseCase = new CreatePurchaseOrderUseCase(repo);
-  const postAccountingEventUseCase = new PostAccountingEventUseCase(
-    getGLAccountRepository(), getJournalEntryRepository(), getAROpenItemRepository(), getAPOpenItemRepository(), getAccountingEventRepository(),
+  const postPOOrderedAccountingUseCase = new PostPOOrderedAccountingUseCase(
+    getGLAccountRepository(),
+    getJournalEntryRepository(),
+    getAROpenItemRepository(),
+    getAPOpenItemRepository(),
+    getAccountingEventRepository(),
   );
-
-  const postPOOrderedEvent = async (po: { id: string; po_no: string; supplier_id: string; total_amount?: number; due_date?: string; status: string }) => {
-    if (po.status !== 'ORDERED') return;
-    try {
-      const postResult = await postAccountingEventUseCase.execute({
-        source_type: 'PURCHASE_ORDER',
-        source_id: po.id,
-        source_no: po.po_no,
-        event_type: 'PO_ORDERED',
-        payload: {
-          amount: po.total_amount || 0,
-          supplier_id: po.supplier_id,
-          po_no: po.po_no,
-          due_date: po.due_date || '',
-        },
-      });
-      if (postResult.ok) {
-        addJournalEntryToCache(postResult.value.journalEntry);
-        addAccountingEventToCache(postResult.value.event);
-        if (postResult.value.apItem) addAPOpenItemToCache(postResult.value.apItem);
-      }
-    } catch {
-      // Silent fail — accounting should not block PO operations
-    }
-  };
 
   const createPurchaseOrder = (input: CreatePurchaseOrderInput) =>
     run(async () => {
       const result = await createPurchaseOrderUseCase.execute(input);
       if (!result.ok) throw result.error;
       addToCache(result.value);
-      await postPOOrderedEvent(result.value);
+
+      const accountingResult = await postPOOrderedAccountingUseCase.execute(result.value);
+      if (accountingResult.ok && accountingResult.value) {
+        addJournalEntryToCache(accountingResult.value.journalEntry);
+        addAccountingEventToCache(accountingResult.value.event);
+        if (accountingResult.value.apItem) addAPOpenItemToCache(accountingResult.value.apItem);
+      }
+
       return result.value;
     });
 
@@ -84,7 +70,14 @@ export function usePurchaseOrders() {
     run(async () => {
       const updated = await repo.update(id, data);
       updateInCache(id, updated);
-      await postPOOrderedEvent(updated);
+
+      const accountingResult = await postPOOrderedAccountingUseCase.execute(updated);
+      if (accountingResult.ok && accountingResult.value) {
+        addJournalEntryToCache(accountingResult.value.journalEntry);
+        addAccountingEventToCache(accountingResult.value.event);
+        if (accountingResult.value.apItem) addAPOpenItemToCache(accountingResult.value.apItem);
+      }
+
       return updated;
     });
 

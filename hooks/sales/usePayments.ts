@@ -3,17 +3,17 @@
 import { useERPStore } from '@/store';
 import {
   getPaymentRepository,
+  getOrderRepository,
   getGLAccountRepository,
   getJournalEntryRepository,
   getAROpenItemRepository,
   getAPOpenItemRepository,
   getAccountingEventRepository,
 } from '@/infrastructure/di/container';
-import { PostAccountingEventUseCase } from '@/domain/accounting/use-cases/post-accounting-event';
+import { PostPaymentConfirmedAccountingUseCase } from '@/domain/sales/use-cases/post-payment-confirmed-accounting';
 
 export function usePayments() {
   const payments = useERPStore((s) => s.payments);
-  const orders = useERPStore((s) => s.orders);
   const addToCache = useERPStore((s) => s.addPaymentToCache);
   const updateInCache = useERPStore((s) => s.updatePaymentInCache);
   const removeFromCache = useERPStore((s) => s.removePaymentFromCache);
@@ -23,8 +23,13 @@ export function usePayments() {
   const updateAROpenItemInCache = useERPStore((s) => s.updateAROpenItemInCache);
 
   const repo = getPaymentRepository();
-  const postAccountingEventUseCase = new PostAccountingEventUseCase(
-    getGLAccountRepository(), getJournalEntryRepository(), getAROpenItemRepository(), getAPOpenItemRepository(), getAccountingEventRepository(),
+  const postPaymentConfirmedAccountingUseCase = new PostPaymentConfirmedAccountingUseCase(
+    getOrderRepository(),
+    getGLAccountRepository(),
+    getJournalEntryRepository(),
+    getAROpenItemRepository(),
+    getAPOpenItemRepository(),
+    getAccountingEventRepository(),
   );
 
   const addPayment = async (data: Parameters<typeof repo.create>[0]) => {
@@ -37,29 +42,12 @@ export function usePayments() {
     const updated = await repo.update(id, data);
     updateInCache(id, updated);
 
-    // Auto-journaling: PAYMENT_CONFIRMED when status becomes CONFIRMED
-    if (updated.status === 'CONFIRMED') {
-      try {
-        const order = orders.find(o => o.id === updated.order_id);
-        const postResult = await postAccountingEventUseCase.execute({
-          source_type: 'PAYMENT',
-          source_id: updated.id,
-          source_no: order?.order_no || updated.order_id,
-          event_type: 'PAYMENT_CONFIRMED',
-          payload: {
-            amount: updated.amount,
-            customer_id: order?.customer_id || '',
-            order_id: updated.order_id,
-            order_no: order?.order_no || '',
-          },
-        });
-        if (postResult.ok) {
-          addJournalEntryToCache(postResult.value.journalEntry);
-          addAccountingEventToCache(postResult.value.event);
-          if (postResult.value.arItem) updateAROpenItemInCache(postResult.value.arItem.id, postResult.value.arItem);
-        }
-      } catch {
-        // Silent fail — accounting should not block payment update
+    const accountingResult = await postPaymentConfirmedAccountingUseCase.execute(updated);
+    if (accountingResult.ok && accountingResult.value) {
+      addJournalEntryToCache(accountingResult.value.journalEntry);
+      addAccountingEventToCache(accountingResult.value.event);
+      if (accountingResult.value.arItem) {
+        updateAROpenItemInCache(accountingResult.value.arItem.id, accountingResult.value.arItem);
       }
     }
 

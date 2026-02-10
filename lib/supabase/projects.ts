@@ -60,6 +60,16 @@ export async function fetchProcessStepsByProjectId(projectId: string): Promise<P
   return (data ?? []) as ProcessStep[]
 }
 
+export async function fetchProcessStepById(id: string): Promise<ProcessStep | null> {
+  const { data, error } = await supabase
+    .from('process_steps')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return data as ProcessStep | null
+}
+
 export async function insertProcessStep(step: ProcessStep): Promise<void> {
   const { error } = await supabase.from('process_steps').insert(step)
   if (error) throw error

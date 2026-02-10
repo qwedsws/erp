@@ -7,7 +7,7 @@ import { useStocks } from '@/hooks/materials/useStocks';
 import { useProfiles } from '@/hooks/admin/useProfiles';
 import { useProjects } from '@/hooks/projects/useProjects';
 import { usePurchaseRequests } from '@/hooks/procurement/usePurchaseRequests';
-import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
+import { useFeedbackToast } from '@/hooks/shared/useFeedbackToast';
 import { calcSteelWeight, calcSteelPrice } from '@/lib/utils';
 
 export interface PRLineItem {
