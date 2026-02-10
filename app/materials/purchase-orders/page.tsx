@@ -42,7 +42,7 @@ export default function PurchaseOrdersPage() {
     [materials],
   );
 
-  const statusTabs: (PurchaseOrderStatus | 'ALL')[] = ['ALL', 'DRAFT', 'ORDERED', 'PARTIAL_RECEIVED', 'RECEIVED', 'CANCELLED'];
+  const statusTabs: (PurchaseOrderStatus | 'ALL')[] = ['ALL', 'DRAFT', 'ORDERED', 'PARTIAL_RECEIVED', 'COMPLETED', 'CANCELLED'];
 
   const toggleCheck = useCallback((id: string) => {
     setCheckedIds((prev) => {

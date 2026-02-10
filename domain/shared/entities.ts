@@ -166,7 +166,7 @@ export interface Machine {
 }
 
 export type MaterialCategory = 'STEEL' | 'TOOL' | 'CONSUMABLE' | 'STANDARD_PART' | 'PURCHASED';
-export type PurchaseOrderStatus = 'DRAFT' | 'ORDERED' | 'PARTIAL_RECEIVED' | 'RECEIVED' | 'CANCELLED';
+export type PurchaseOrderStatus = 'DRAFT' | 'ORDERED' | 'PARTIAL_RECEIVED' | 'COMPLETED' | 'CANCELLED';
 export type StockMovementType = 'IN' | 'OUT' | 'ADJUST';
 export type ToolType =
   | 'END_MILL'
@@ -309,7 +309,7 @@ export interface MaterialPrice {
   created_at: string;
 }
 
-export type PurchaseRequestStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CONVERTED';
+export type PurchaseRequestStatus = 'DRAFT' | 'IN_PROGRESS' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 
 export interface PurchaseRequest {
   id: string;

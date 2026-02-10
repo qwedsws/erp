@@ -142,7 +142,7 @@ export function useDataIntegrityChecks(): IntegrityCategory[] {
     // ── 3. 문서 연결 누락 ─────────────────────────────────────────
     // Converted PRs should have po_id
     const convertedPRs = purchaseRequests.filter(
-      (pr) => pr.status === 'CONVERTED',
+      (pr) => pr.status === 'COMPLETED',
     );
     const prNoPoId = convertedPRs.filter((pr) => !pr.po_id).length;
 

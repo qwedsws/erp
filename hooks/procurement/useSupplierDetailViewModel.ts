@@ -61,7 +61,7 @@ export function useSupplierDetailViewModel(supplierId?: string) {
   const stats = useMemo(() => {
     const totalOrders = supplierPOs.length;
     const totalAmount = supplierPOs.reduce((sum, purchaseOrder) => sum + (purchaseOrder.total_amount || 0), 0);
-    const receivedCount = supplierPOs.filter((purchaseOrder) => purchaseOrder.status === 'RECEIVED').length;
+    const receivedCount = supplierPOs.filter((purchaseOrder) => purchaseOrder.status === 'COMPLETED').length;
     return { totalOrders, totalAmount, receivedCount };
   }, [supplierPOs]);
 

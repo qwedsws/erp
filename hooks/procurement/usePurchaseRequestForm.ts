@@ -164,7 +164,7 @@ export function usePurchaseRequestForm() {
         required_date: header.required_date,
         reason: item.reason,
         requested_by: header.requested_by,
-        status: 'PENDING' as const,
+        status: 'IN_PROGRESS' as const,
         project_id: header.project_id || undefined,
         notes: noteParts.length > 0 ? noteParts.join(' | ') : undefined,
         ...(calc.isSteel && dimW && dimL && dimH

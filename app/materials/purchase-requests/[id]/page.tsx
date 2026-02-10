@@ -142,7 +142,7 @@ export default function PurchaseRequestDetailPage() {
         title={pr.pr_no}
         description={material?.name || '자재 미지정'}
         actions={
-          pr.status === 'PENDING' ? (
+          pr.status === 'IN_PROGRESS' ? (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => void handleApprove()}
@@ -291,7 +291,7 @@ export default function PurchaseRequestDetailPage() {
       )}
 
       {/* Approval info card */}
-      {(pr.status === 'APPROVED' || pr.status === 'REJECTED' || pr.status === 'CONVERTED') && (
+      {(pr.status === 'APPROVED' || pr.status === 'REJECTED' || pr.status === 'COMPLETED') && (
         <div className="rounded-lg border border-border bg-card p-6 mb-6">
           <h3 className="font-semibold mb-4">승인/반려 정보</h3>
           <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">

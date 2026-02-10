@@ -77,7 +77,7 @@ export class ReceivePurchaseOrderUseCase {
 
     const allReceived = updatedItems.every(item => (item.received_quantity || 0) >= item.quantity);
     const anyReceived = updatedItems.some(item => (item.received_quantity || 0) > 0);
-    const newStatus = allReceived ? ('RECEIVED' as const) : anyReceived ? ('PARTIAL_RECEIVED' as const) : po.status;
+    const newStatus = allReceived ? ('COMPLETED' as const) : anyReceived ? ('PARTIAL_RECEIVED' as const) : po.status;
 
     const movementInputs: Omit<StockMovement, 'id' | 'created_at'>[] = [];
     const receivedByMaterialId = new Map<string, { quantity: number; totalAmount: number; unitPrice: number }>();

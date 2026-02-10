@@ -15,9 +15,9 @@ export type StatusTab = PurchaseRequestStatus | 'ALL';
 
 export interface KpiCounts {
   total: number;
-  pending: number;
+  inProgress: number;
   approved: number;
-  converted: number;
+  completed: number;
 }
 
 // --- Constants ---
@@ -25,10 +25,10 @@ export interface KpiCounts {
 export const STATUS_TABS: { key: StatusTab; label: string }[] = [
   { key: 'ALL', label: '전체' },
   { key: 'DRAFT', label: '작성중' },
-  { key: 'PENDING', label: '승인대기' },
+  { key: 'IN_PROGRESS', label: '진행중' },
   { key: 'APPROVED', label: '승인' },
   { key: 'REJECTED', label: '반려' },
-  { key: 'CONVERTED', label: '발주전환' },
+  { key: 'COMPLETED', label: '완료' },
 ];
 
 // --- Hook ---
@@ -74,10 +74,10 @@ export function usePurchaseRequestsPageData() {
   // KPI counts: total from server, status breakdowns from cache
   const kpiCounts = useMemo<KpiCounts>(() => {
     const total = listQuery.total;
-    const pending = purchaseRequests.filter((pr) => pr.status === 'PENDING').length;
+    const inProgress = purchaseRequests.filter((pr) => pr.status === 'IN_PROGRESS').length;
     const approved = purchaseRequests.filter((pr) => pr.status === 'APPROVED').length;
-    const converted = purchaseRequests.filter((pr) => pr.status === 'CONVERTED').length;
-    return { total, pending, approved, converted };
+    const completed = purchaseRequests.filter((pr) => pr.status === 'COMPLETED').length;
+    return { total, inProgress, approved, completed };
   }, [listQuery.total, purchaseRequests]);
 
   // Server-side paginated items
@@ -99,7 +99,7 @@ export function usePurchaseRequestsPageData() {
   const selectedPendingCount = useMemo(() => {
     return [...checkedIds].filter((id) => {
       const pr = items.find((p) => p.id === id);
-      return pr?.status === 'PENDING';
+      return pr?.status === 'IN_PROGRESS';
     }).length;
   }, [checkedIds, items]);
 
@@ -113,7 +113,7 @@ export function usePurchaseRequestsPageData() {
   const selectedCanDeleteCount = useMemo(() => {
     return [...checkedIds].filter((id) => {
       const pr = items.find((p) => p.id === id);
-      return pr && pr.status !== 'CONVERTED';
+      return pr && pr.status !== 'COMPLETED';
     }).length;
   }, [checkedIds, items]);
 
@@ -130,7 +130,7 @@ export function usePurchaseRequestsPageData() {
   const batchApprove = useCallback(async () => {
     const pendingIds = [...checkedIds].filter((id) => {
       const pr = items.find((p) => p.id === id);
-      return pr?.status === 'PENDING';
+      return pr?.status === 'IN_PROGRESS';
     });
     if (pendingIds.length === 0) {
       showInfo('승인할 대기 건이 없습니다.');
@@ -156,7 +156,7 @@ export function usePurchaseRequestsPageData() {
   const openRejectDialog = useCallback(() => {
     const pendingIds = [...checkedIds].filter((id) => {
       const pr = items.find((p) => p.id === id);
-      return pr?.status === 'PENDING';
+      return pr?.status === 'IN_PROGRESS';
     });
     if (pendingIds.length === 0) {
       showInfo('반려할 대기 건이 없습니다.');
@@ -248,7 +248,7 @@ export function usePurchaseRequestsPageData() {
   const openDeleteDialog = useCallback(() => {
     const deletableIds = [...checkedIds].filter((id) => {
       const pr = items.find((p) => p.id === id);
-      return pr && pr.status !== 'CONVERTED';
+      return pr && pr.status !== 'COMPLETED';
     });
     if (deletableIds.length === 0) {
       showInfo('삭제할 수 있는 건이 없습니다.');

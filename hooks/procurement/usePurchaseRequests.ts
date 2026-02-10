@@ -95,7 +95,7 @@ export function usePurchaseRequests() {
     run(async () => {
       // null clears Supabase columns; cast needed because entity uses optional (undefined)
       const updated = await purchaseRequestRepo.update(id, {
-        status: 'PENDING',
+        status: 'IN_PROGRESS',
         approved_by: null,
         approved_at: null,
         reject_reason: null,

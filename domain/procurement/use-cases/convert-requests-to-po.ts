@@ -128,7 +128,7 @@ export class ConvertRequestsToPOUseCase {
         requests.map((pr) => {
           const key = pr.project_id ?? PROJECT_NULL_KEY;
           return this.prRepo.update(pr.id, {
-            status: 'CONVERTED',
+            status: 'COMPLETED',
             po_id: poIdByProjectKey.get(key),
           });
         }),

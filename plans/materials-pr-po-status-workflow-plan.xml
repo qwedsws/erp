@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan version="1.2">
+  <meta>
+    <title>자재/구매 상태 전이 워크플로우 정렬 계획</title>
+    <created>2026-02-10T11:51:00Z</created>
+    <updated>2026-02-10T11:53:28Z</updated>
+    <owner>planner</owner>
+    <context>
+      <repoRoot>.</repoRoot>
+      <planPath>plans/materials-pr-po-status-workflow-plan.xml</planPath>
+      <request><![CDATA[
+구매요청 등록 시 상태를 진행중으로 표시하고, 발주 등록 시 연계된 PR 상태를 완료로 자동 전이한다.
+또한 PO의 모든 품목 입고 완료 시 PO 상태를 완료로 전이한다.
+]]></request>
+    </context>
+  </meta>
+
+  <scope>
+    <writeAllow>plans/**</writeAllow>
+    <writeAllow>**/*-overview.md</writeAllow>
+    <writeDeny>everything-else</writeDeny>
+    <notes><![CDATA[
+Planner 단계에서는 계획 산출물만 수정한다. 소스코드 변경은 externalChanges/handoff로만 지시한다.
+]]></notes>
+  </scope>
+
+  <statusModel>
+    <allowed>todo,in_progress,partial,done,blocked,failed,needs_replan</allowed>
+    <transition from="todo" to="in_progress"/>
+    <transition from="todo" to="needs_replan"/>
+    <transition from="in_progress" to="partial"/>
+    <transition from="in_progress" to="done"/>
+    <transition from="in_progress" to="blocked"/>
+    <transition from="in_progress" to="failed"/>
+    <transition from="partial" to="in_progress"/>
+    <transition from="partial" to="done"/>
+    <transition from="partial" to="blocked"/>
+    <transition from="partial" to="failed"/>
+    <transition from="blocked" to="in_progress"/>
+    <transition from="blocked" to="needs_replan"/>
+    <transition from="failed" to="in_progress"/>
+    <transition from="failed" to="needs_replan"/>
+    <transition from="needs_replan" to="todo"/>
+    <transition from="needs_replan" to="in_progress"/>
+  </statusModel>
+
+  <inventory>
+    <folder path="app/" overview="app/app-overview.md" status="existing"/>
+    <folder path="hooks/" overview="hooks/hooks-overview.md" status="existing"/>
+    <folder path="domain/" overview="domain/domain-overview.md" status="existing"/>
+    <folder path="infrastructure/" overview="infrastructure/infrastructure-overview.md" status="existing"/>
+    <folder path="store/" overview="store/store-overview.md" status="existing"/>
+    <folder path="lib/" overview="lib/lib-overview.md" status="existing"/>
+    <folder path="plans/" overview="plans/plans-overview.md" status="existing"/>
+  </inventory>
+
+  <phases>
+    <phase id="P1" name="요구사항/상태 모델 확정" status="done">
+      <tasks>
+        <task id="T1" status="done" owner="planner" dependsOn="" updatedAt="2026-02-10T11:51:00Z">
+          <summary><![CDATA[현재 워크플로우 및 상태 전이 경로를 스캔했다]]></summary>
+          <details><![CDATA[
+현행 코드 기준으로 PR 생성은 PENDING/DRAFT, PR→PO 연계는 convertRequestsToPO 경로, PO 입고 완료는 RECEIVED 전이 로직이 존재함을 확인했다.
+PO 신규 등록 화면에는 PR 불러오기 UX가 없고, PR 상태 용어(진행중/완료)와 도메인 상태값(PENDING/CONVERTED)이 어긋난다.
+]]></details>
+          <outputs>
+            <file path="plans/materials-pr-po-status-workflow-plan.xml" kind="plan"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[요구사항과 현행 상태값 불일치 지점이 식별되어 후속 작업 입력으로 정리된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[상태명만 변경할지 enum 자체를 변경할지 결정이 늦으면 하위 단계 영향이 커진다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T2" status="done" owner="planner" dependsOn="T1" updatedAt="2026-02-10T11:53:28Z">
+          <summary><![CDATA[PR/PO 상태 어휘를 도메인 단일 기준으로 확정한다]]></summary>
+          <details><![CDATA[
+사용자 결정으로 B안을 확정한다.
+B안: enum/DB 상태값 자체를 IN_PROGRESS/COMPLETED 중심으로 재정의하고,
+체크 제약/기존 데이터/표시 맵을 함께 마이그레이션한다.
+]]></details>
+          <outputs>
+            <file path="plans/materials-pr-po-status-workflow-plan.xml" kind="plan-update"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[B안 선택, 영향 범위, 다음 실행 단계가 changeLog와 handoff에 반영된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="high"><![CDATA[B안을 선택하면 DB CHECK 제약 및 기존 데이터 backfill까지 필요하다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P2" name="도메인/영속성 계약 정렬" status="todo">
+      <tasks>
+        <task id="T3" status="todo" owner="executor" dependsOn="T2" updatedAt="2026-02-10T11:51:00Z">
+          <summary><![CDATA[PR 상태 전이를 요구사항에 맞게 도메인에서 강제한다]]></summary>
+          <details><![CDATA[
+PR 생성 시 기본 상태를 '진행중' 의미값으로 설정하고,
+PR 기반 PO 생성 시 대상 PR의 status + po_id를 원자적으로 업데이트한다.
+단건 훅 로직이 아니라 use-case 계층에서 상태 전이를 캡슐화한다.
+]]></details>
+          <outputs>
+            <file path="domain/procurement/use-cases/create-purchase-requests-from-bom.ts" kind="code"/>
+            <file path="domain/procurement/use-cases/convert-requests-to-po.ts" kind="code"/>
+            <file path="hooks/procurement/usePurchaseRequestForm.ts" kind="code"/>
+            <file path="hooks/procurement/usePurchaseRequests.ts" kind="code"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[PR 생성 직후 상태가 진행중 의미값으로 저장된다.]]></criterion>
+            <criterion><![CDATA[PO 생성 성공 시 연결된 PR은 모두 완료 의미값 + po_id를 가진다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="high"><![CDATA[PR 상태 전이와 PO 생성이 분리되면 중간 실패 시 불일치가 발생한다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T4" status="todo" owner="executor" dependsOn="T2" updatedAt="2026-02-10T11:51:00Z">
+          <summary><![CDATA[PO 완료 상태 전이를 재확인하고 용어를 완료로 정렬한다]]></summary>
+          <details><![CDATA[
+현재 ReceivePurchaseOrderUseCase의 allReceived 계산으로 RECEIVED 전이되는 로직을 유지/보완한다.
+화면 표현을 '완료'로 통일하고, partial/full 전이 조건 회귀를 테스트한다.
+필요 시 PO_STATUS_MAP 라벨과 탭 용어를 정렬한다.
+]]></details>
+          <outputs>
+            <file path="domain/materials/use-cases/receive-purchase-order.ts" kind="code"/>
+            <file path="types/display.ts" kind="code"/>
+            <file path="app/materials/purchase-orders/page.tsx" kind="code"/>
+            <file path="app/materials/purchase-orders/[id]/page.tsx" kind="code"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[PO의 모든 item.received_quantity >= quantity이면 상태가 완료 의미값으로 전이된다.]]></criterion>
+            <criterion><![CDATA[부분입고 상태에서는 완료로 전이되지 않는다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[입고 취소/삭제 기능과 상태 계산이 충돌할 수 있다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P3" name="PO 등록 UX에 PR 불러오기 통합" status="todo">
+      <tasks>
+        <task id="T5" status="todo" owner="executor" dependsOn="T3" updatedAt="2026-02-10T11:51:00Z">
+          <summary><![CDATA[발주 등록 화면에서 PR 선택/불러오기 플로우를 추가한다]]></summary>
+          <details><![CDATA[
+PO 신규 폼에서 PR 번호/자재/수량을 검색해 선택할 수 있는 패널을 추가한다.
+선택된 PR을 PO item으로 매핑하고 공급처/납기/프로젝트 기본값을 자동 채운다.
+PO 저장 성공 후 연계 PR 상태를 완료로 전이한다.
+]]></details>
+          <outputs>
+            <file path="hooks/procurement/usePurchaseOrderForm.ts" kind="code"/>
+            <file path="app/materials/purchase-orders/new/page.tsx" kind="code"/>
+            <file path="hooks/procurement/usePurchaseRequests.ts" kind="code"/>
+            <file path="domain/procurement/use-cases/convert-requests-to-po.ts" kind="code"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[PO 등록 UI에서 PR을 불러와 품목이 자동 구성된다.]]></criterion>
+            <criterion><![CDATA[PO 저장 성공 시 선택 PR이 완료 의미값으로 갱신된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="high"><![CDATA[동일 PR 중복 선택/중복 전환 방지 제어가 없으면 이중 발주가 가능하다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P4" name="화면/조회 일관성 및 검증" status="todo">
+      <tasks>
+        <task id="T6" status="todo" owner="executor" dependsOn="T3,T4,T5" updatedAt="2026-02-10T11:51:00Z">
+          <summary><![CDATA[PR/PO 목록·상세의 상태 라벨/필터/액션을 일관화한다]]></summary>
+          <details><![CDATA[
+구매요청 페이지 탭/배지/액션을 새 상태 모델에 맞춘다.
+발주관리/입고관리에서 완료 상태가 정확히 노출되는지, 취소/삭제 액션과 충돌하지 않는지 확인한다.
+]]></details>
+          <outputs>
+            <file path="app/materials/purchase-requests/page.tsx" kind="code"/>
+            <file path="app/materials/purchase-requests/[id]/page.tsx" kind="code"/>
+            <file path="hooks/procurement/usePurchaseRequestsPageData.ts" kind="code"/>
+            <file path="app/materials/purchase-orders/page.tsx" kind="code"/>
+            <file path="hooks/materials/useReceivingPageData.ts" kind="code"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[사용자가 보는 상태 용어가 전 화면에서 진행중/완료 기준으로 통일된다.]]></criterion>
+            <criterion><![CDATA[상태별 허용 액션(전환/취소/삭제)이 정책대로 제한된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[store 기반 KPI와 query 기반 테이블 간 표시 타이밍 차이가 남을 수 있다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T7" status="todo" owner="executor" dependsOn="T6" updatedAt="2026-02-10T11:51:00Z">
+          <summary><![CDATA[회귀 검증 시나리오와 완료 기준을 실행한다]]></summary>
+          <details><![CDATA[
+핵심 시나리오:
+1) PR 등록 -> 진행중 표시
+2) PO 등록(PR 불러오기) -> PR 완료 표시
+3) PO 전량 입고 -> PO 완료 표시
+4) 부분입고/취소/삭제 경계 케이스
+정적 검증: npm run lint, npm run build
+]]></details>
+          <outputs>
+            <file path="plans/materials-pr-po-status-workflow-plan.xml" kind="verification-log"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[핵심 시나리오 4종이 모두 통과하고 lint/build가 성공한다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[Supabase와 InMemory 동작 차이로 환경별 결과가 다를 수 있다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+
+  <externalChanges>
+    <requestSummary><![CDATA[
+사용자는 자재/구매 워크플로우를 "PR 등록=진행중, PR 기반 PO 등록=PR 완료, PO 전량 입고=PO 완료"로 단순하고 일관되게 운영하길 원한다.
+또한 발주 등록 화면에서 PR을 직접 불러와 연결하는 UX를 요구한다.
+]]></requestSummary>
+    <policyReason><![CDATA[
+현재 planner 스코프는 plans/** 및 *-overview.md만 쓰기 허용된다.
+따라서 실제 코드 수정은 수행하지 않고, 변경 대상/순서/검증 기준을 executor가 바로 적용 가능한 수준으로 명시한다.
+]]></policyReason>
+    <patchInstructions><![CDATA[
+우선 적용 파일(핵심):
+- domain/shared/entities.ts
+- types/display.ts
+- domain/procurement/use-cases/convert-requests-to-po.ts
+- hooks/procurement/usePurchaseRequestForm.ts
+- hooks/procurement/usePurchaseRequests.ts
+- hooks/procurement/usePurchaseOrderForm.ts
+- app/materials/purchase-orders/new/page.tsx
+- domain/materials/use-cases/receive-purchase-order.ts
+- app/materials/purchase-requests/page.tsx
+- hooks/procurement/usePurchaseRequestsPageData.ts
+- app/materials/purchase-orders/page.tsx
+보조 정합 파일:
+- lib/mock-data.ts
+- infrastructure/repositories/supabase/procurement.ts
+- infrastructure/repositories/in-memory/procurement.ts
+]]></patchInstructions>
+    <userOptions><![CDATA[
+선택 확정: B안 (enum/DB까지 변경)
+1) Executor에게 본 계획 순서대로 구현 위임
+2) B안 유지 + 마이그레이션 범위 축소(핵심 상태만 우선)
+3) B안 유지 + 전 도메인 리포트/통계 라벨까지 동시 반영
+]]></userOptions>
+  </externalChanges>
+
+  <handoff>
+    <forExecutor><![CDATA[
+실행 순서:
+1. T2 확정 완료(B안)를 기준으로 상태 enum/표시맵/DB 제약 변경안을 먼저 적용
+2. T3/T4로 도메인 상태 전이와 완료 판정을 고정
+3. T5에서 PO 신규 화면 PR 불러오기 UX 통합
+4. T6에서 목록/상세 라벨 및 액션 정책 일관화
+5. T7에서 회귀 시나리오 + lint/build 검증
+
+구현 원칙:
+- 상태 전이는 use-case에서 보장하고, 훅은 오케스트레이션 최소화
+- PR/PO 동시 갱신은 가능한 한 원자적으로 처리
+- Supabase/InMemory 둘 다 동일 상태 전이 보장
+]]></forExecutor>
+    <forReviewer><![CDATA[
+리뷰 체크리스트:
+1) PR 생성 직후 상태가 진행중 의미값인지
+2) PR 연계 PO 생성 성공 시 PR 완료 전이가 누락되지 않는지
+3) PO 전량 입고 조건에서만 완료 전이되는지
+4) 취소/삭제 경계에서 상태 계산이 깨지지 않는지
+5) 화면 라벨과 내부 상태값 매핑이 문서/코드 모두 일치하는지
+]]></forReviewer>
+  </handoff>
+
+  <changeLog>
+    <change when="2026-02-10T11:51:00Z" who="planner" type="init"><![CDATA[
+요청 워크플로우를 기준으로 신규 계획 파일을 생성했다.
+현행 코드 스캔 결과와 상태 정렬/PO-PR 연계/입고 완료 전이 작업을 단계별로 분해했다.
+]]></change>
+    <change when="2026-02-10T11:53:28Z" who="planner" type="decision"><![CDATA[
+change: 사용자 요청으로 1번 의사결정을 B안(enum/DB 상태값 변경)으로 확정.
+impact: P2 이후 모든 작업은 상태값 마이그레이션을 전제로 수행해야 하며, 표시 라벨 수정만으로는 수용 불가.
+nextAction: executor는 T3/T4 시작 전에 enum/DB 제약/표시맵 변경안을 우선 반영한다.
+]]></change>
+  </changeLog>
+</plan>
