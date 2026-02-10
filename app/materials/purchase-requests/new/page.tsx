@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { SearchSelect } from '@/components/common/search-select';
+import { DatePickerCell } from '@/components/common/date-picker-cell';
 import { usePurchaseRequestForm } from '@/hooks/procurement/usePurchaseRequestForm';
 
 const cellInput =
@@ -15,7 +16,7 @@ const headerInput =
 export default function NewPurchaseRequestPage() {
   const {
     header, setHeader,
-    items, materials, profiles,
+    items, materials, profiles, projects,
     materialById,
     validItemCount,
     addItem, removeItem, updateItem,
@@ -28,6 +29,15 @@ export default function NewPurchaseRequestPage() {
       label: `${p.name} (${p.department ?? p.role})`,
     })),
     [profiles],
+  );
+
+  const projectOptions = useMemo(
+    () => projects.map((p) => ({
+      value: p.id,
+      label: `${p.project_no} - ${p.name}`,
+      searchText: `${p.project_no} ${p.name}`,
+    })),
+    [projects],
   );
 
   const materialCodeOptions = useMemo(
@@ -86,7 +96,7 @@ export default function NewPurchaseRequestPage() {
         {/* Common header fields */}
         <div className="rounded-lg border border-border bg-card p-6 mb-6">
           <h3 className="font-semibold mb-4">공통 정보</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">
                 요청자 <span className="text-destructive">*</span>
@@ -102,13 +112,20 @@ export default function NewPurchaseRequestPage() {
               <label className="block text-sm font-medium mb-1.5">
                 필요일 <span className="text-destructive">*</span>
               </label>
-              <input
-                name="required_date"
-                type="date"
+              <DatePickerCell
                 value={header.required_date}
-                onChange={handleHeaderChange}
-                required
-                className={headerInput}
+                onChange={(val) => setHeader((prev) => ({ ...prev, required_date: val }))}
+                placeholder="필요일 선택"
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring inline-flex items-center justify-between gap-1"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">프로젝트</label>
+              <SearchSelect
+                options={projectOptions}
+                value={header.project_id}
+                onChange={(val) => setHeader((prev) => ({ ...prev, project_id: val }))}
+                placeholder="프로젝트 검색..."
               />
             </div>
             <div>

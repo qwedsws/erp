@@ -65,6 +65,7 @@ export class ReceivePurchaseOrderUseCase {
         quantity: receivedQty,
         unit_price: poItem.unit_price,
         purchase_order_id: input.poId,
+        project_id: po.project_id,
       });
 
       const agg = receivedByMaterialId.get(poItem.material_id) ?? {

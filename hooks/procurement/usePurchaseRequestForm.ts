@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMaterials } from '@/hooks/materials/useMaterials';
 import { useStocks } from '@/hooks/materials/useStocks';
 import { useProfiles } from '@/hooks/admin/useProfiles';
+import { useProjects } from '@/hooks/projects/useProjects';
 import { usePurchaseRequests } from '@/hooks/procurement/usePurchaseRequests';
 import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
 import { calcSteelWeight, calcSteelPrice } from '@/lib/utils';
@@ -42,12 +43,14 @@ export function usePurchaseRequestForm() {
   const { materials } = useMaterials();
   const { stocks } = useStocks();
   const { profiles } = useProfiles();
+  const { projects } = useProjects();
   const { addPurchaseRequests, isLoading } = usePurchaseRequests();
   const { showError, showSuccess } = useFeedbackToast();
 
   const [header, setHeader] = useState({
     requested_by: '',
     required_date: '',
+    project_id: '',
     notes: '',
   });
 
@@ -162,6 +165,7 @@ export function usePurchaseRequestForm() {
         reason: item.reason,
         requested_by: header.requested_by,
         status: 'PENDING' as const,
+        project_id: header.project_id || undefined,
         notes: noteParts.length > 0 ? noteParts.join(' | ') : undefined,
         ...(calc.isSteel && dimW && dimL && dimH
           ? {
@@ -189,6 +193,7 @@ export function usePurchaseRequestForm() {
     items,
     materials,
     profiles,
+    projects,
     materialById,
     stockByMaterialId,
     validItemCount: validItems.length,

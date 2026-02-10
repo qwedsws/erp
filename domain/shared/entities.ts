@@ -10,6 +10,7 @@ export type UserRole =
 
 export interface Profile {
   id: string;
+  email: string;
   name: string;
   role: UserRole;
   department?: string;
@@ -285,6 +286,7 @@ export interface PurchaseOrder {
   id: string;
   po_no: string;
   supplier_id: string;
+  project_id?: string;
   status: PurchaseOrderStatus;
   order_date: string;
   due_date?: string;
@@ -322,6 +324,7 @@ export interface PurchaseRequest {
   approved_at?: string;
   reject_reason?: string;
   po_id?: string;
+  project_id?: string;
   notes?: string;
   // v2: STEEL 치수
   dimension_w?: number;

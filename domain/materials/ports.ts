@@ -1,13 +1,15 @@
 import type { Material, Stock, StockMovement, MaterialPrice, SteelTag } from './entities';
-import type { QueryRangeOptions } from '@/domain/shared/types';
+import type { QueryRangeOptions, MaterialPageQuery, PageResult, InventoryStats } from '@/domain/shared/types';
 
 export interface IMaterialRepository {
   findAll(options?: QueryRangeOptions): Promise<Material[]>;
+  findPage(query: MaterialPageQuery): Promise<PageResult<Material>>;
   findById(id: string): Promise<Material | null>;
   findByIds(ids: string[]): Promise<Material[]>;
   create(data: Omit<Material, 'id' | 'created_at' | 'updated_at'>): Promise<Material>;
   update(id: string, data: Partial<Material>): Promise<Material>;
   delete(id: string): Promise<void>;
+  getInventoryStats(): Promise<InventoryStats>;
 }
 
 export interface IStockRepository {

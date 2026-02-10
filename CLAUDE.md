@@ -51,7 +51,7 @@ Shared: `domain/shared/types.ts` exports `Result<T>`, `success()`, `failure()`, 
 
 - `di/container.ts` — singleton factory functions (`getXRepository()`). Selects InMemory or Supabase implementation based on env vars `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`.
 - `repositories/in-memory/` — 8 InMemory implementations (all domains)
-- `repositories/supabase/` — 2 Supabase implementations (materials, procurement only)
+- `repositories/supabase/` — 3 Supabase implementations (materials, procurement, projects)
 
 ### Store Layer (`store/`)
 

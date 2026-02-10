@@ -6,7 +6,7 @@ import type {
   ISteelTagRepository,
 } from '@/domain/materials/ports';
 import type { Material, Stock, StockMovement, MaterialPrice, SteelTag } from '@/domain/materials/entities';
-import type { QueryRangeOptions } from '@/domain/shared/types';
+import type { QueryRangeOptions, MaterialPageQuery, PageResult, InventoryStats } from '@/domain/shared/types';
 import * as sb from '@/lib/supabase/materials';
 
 export class SupabaseMaterialRepository implements IMaterialRepository {
@@ -38,6 +38,14 @@ export class SupabaseMaterialRepository implements IMaterialRepository {
 
   async delete(id: string): Promise<void> {
     await sb.deleteMaterialDB(id);
+  }
+
+  async findPage(query: MaterialPageQuery): Promise<PageResult<Material>> {
+    return sb.fetchMaterialsPage(query);
+  }
+
+  async getInventoryStats(): Promise<InventoryStats> {
+    return sb.fetchInventoryStats();
   }
 }
 

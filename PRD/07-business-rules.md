@@ -2,13 +2,17 @@
 
 ### 7.1 프로젝트 상태 전이 규칙 (공정 기반 자동 전환)
 ```
+- 수주확정 시: 설계 공정 4단계(DESIGN_3D/2D/REVIEW/BOM) 자동 시드 (idempotent, CreateOrderWithProjectUseCase)
 - 수주확정 → 설계중: 설계 공정(DESIGN_3D) 작업 시작 시 자동 전환. 설계자 배정 필수.
 - 설계중 → 설계완료: 모든 설계 공정(DESIGN_3D/2D/REVIEW/BOM) 완료 시 자동 전환.
                      DESIGN_REVIEW 승인 및 BOM 확정 필수.
+- DESIGN_BOM 완료 시: BOM 항목 기반 구매요청(PR) 자동 생성 (CreatePurchaseRequestsFromBomUseCase, 멱등)
 - 설계완료 → 자재준비: MATERIAL_PREP 공정 시작 시 자동 전환. BOM 확정 필수.
 - 자재준비 → 가공중: 첫 가공 공정 작업 시작 시 자동 전환. 핵심 자재 입고 완료 필수.
 - 조립중 → 트라이아웃: TRYOUT 공정 시작 시. 조립 완료 검사 통과 필수.
 - 최종검사 → 출하: FINAL_INSPECTION 합격 시. 최종 검사 합격 필수.
+- 상태 전환은 forward-only: isStatusLater() 가드로 역행 방지
+- WorkOrder START/COMPLETE → ProcessStep + Project 상태 자동 동기화 (resolveProjectStatusFromSteps)
 ```
 
 ### 7.1.1 공정 간 선후행 제약
@@ -66,6 +70,29 @@
   - 재고출고: stock.avg_unit_price(이동평균 단가)
   - 노무비(확장): work_logs.duration × profiles.hourly_rate
 - 계정과목은 회사별 정책 테이블에서 매핑 가능해야 하며, 기본값은 시스템 표준 계정 사용.
+```
+
+구현 완료된 자동분개 트리거 (AutoPostingService):
+
+| event_type | 트리거 | DR 계정 | CR 계정 | project_id |
+|------------|--------|---------|---------|------------|
+| ORDER_CONFIRMED | 수주 확정 | 매출채권(1100) | 매출(4000) | — |
+| PAYMENT_CONFIRMED | 입금 확정 | 보통예금(1000) | 매출채권(1100) | — |
+| PO_ORDERED | 발주 생성 | 원재료(1200) | 매입채무(2100) | PO.project_id |
+| STOCK_OUT | 재고 출고 | 재공품(1300) | 원재료(1200) | 출고 project_id |
+
+- Hook 계층에서 try/catch + silent fail 패턴으로 비즈니스 로직에 영향 없이 분개 트리거
+
+### 7.6 프로젝트 기준 E2E 데이터 추적 규칙
+```
+- project_id는 수주→프로젝트→설계→구매요청→발주→입고→출고→분개까지 일관 전파한다.
+- PurchaseRequest.project_id: BOM→PR 자동 생성 시 또는 수동 등록 시 설정
+- PurchaseOrder.project_id: PR→PO 변환 시 자동 설정 (ConvertRequestsToPO)
+- 혼합 프로젝트 PR → 프로젝트별 PO 자동 분할 (동일 프로젝트 PR끼리 그룹핑)
+- StockMovement(IN).project_id: PO 입고 시 PO.project_id 전파
+- SteelTag.project_id: PO 입고 시 PO.project_id 전파
+- 분개 라인.project_id: PO_ORDERED, STOCK_OUT 분개 시 project_id 포함
+- 데이터 정합성 점검: project_id 누락률, PO-PR 상태 불일치, 문서 연결 누락 (3종)
 ```
 
 ---

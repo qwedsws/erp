@@ -2,11 +2,20 @@
 
 import { useEffect } from 'react';
 import { useERPStore } from '@/store';
-import { getStockMovementRepository, getStockRepository } from '@/infrastructure/di/container';
+import {
+  getStockMovementRepository,
+  getStockRepository,
+  getGLAccountRepository,
+  getJournalEntryRepository,
+  getAROpenItemRepository,
+  getAPOpenItemRepository,
+  getAccountingEventRepository,
+} from '@/infrastructure/di/container';
 import { StockOutUseCase } from '@/domain/materials/use-cases/stock-out';
 import { AdjustStockUseCase } from '@/domain/materials/use-cases/adjust-stock';
 import { BulkAdjustStockUseCase } from '@/domain/materials/use-cases/bulk-adjust-stock';
 import { ReceiveDirectStockUseCase } from '@/domain/materials/use-cases/receive-direct-stock';
+import { PostAccountingEventUseCase } from '@/domain/accounting/use-cases/post-accounting-event';
 import type { StockMovement } from '@/domain/materials/entities';
 import { useAsyncAction } from '@/hooks/shared/useAsyncAction';
 import { useInitialHydration } from '@/hooks/admin/useInitialHydration';
@@ -22,6 +31,9 @@ export function useStocks(options?: UseStocksOptions) {
   const stockMovements = useERPStore((s) => s.stockMovements);
   const addMovementToCache = useERPStore((s) => s.addStockMovementToCache);
   const upsertStockInCache = useERPStore((s) => s.upsertStockInCache);
+  // Accounting cache
+  const addJournalEntryToCache = useERPStore((s) => s.addJournalEntryToCache);
+  const addAccountingEventToCache = useERPStore((s) => s.addAccountingEventToCache);
   const { run, isLoading, error } = useAsyncAction();
   const { hydrateResources, isResourceHydrated } = useInitialHydration();
   const includeStocks = options?.includeStocks ?? true;
@@ -46,6 +58,9 @@ export function useStocks(options?: UseStocksOptions) {
   const adjustStockUseCase = new AdjustStockUseCase(stockRepo, movementRepo);
   const bulkAdjustStockUseCase = new BulkAdjustStockUseCase(stockRepo, movementRepo);
   const receiveDirectStockUseCase = new ReceiveDirectStockUseCase(stockRepo, movementRepo);
+  const postAccountingEventUseCase = new PostAccountingEventUseCase(
+    getGLAccountRepository(), getJournalEntryRepository(), getAROpenItemRepository(), getAPOpenItemRepository(), getAccountingEventRepository(),
+  );
 
   const stockOut = (materialId: string, quantity: number, projectId: string, reason?: string) =>
     run(async () => {
@@ -55,6 +70,29 @@ export function useStocks(options?: UseStocksOptions) {
       if (!result.ok) throw result.error;
       addMovementToCache(result.value.movement);
       upsertStockInCache(result.value.stock);
+
+      // Auto-journaling: STOCK_OUT
+      try {
+        const amount = quantity * (result.value.stock.avg_unit_price || 0);
+        const postResult = await postAccountingEventUseCase.execute({
+          source_type: 'STOCK_MOVEMENT',
+          source_id: result.value.movement.id,
+          source_no: result.value.movement.id,
+          event_type: 'STOCK_OUT',
+          payload: {
+            material_id: materialId,
+            project_id: projectId,
+            amount,
+            reason: reason || '자재 출고',
+          },
+        });
+        if (postResult.ok) {
+          addJournalEntryToCache(postResult.value.journalEntry);
+          addAccountingEventToCache(postResult.value.event);
+        }
+      } catch {
+        // Silent fail — accounting should not block stock out
+      }
     });
 
   const adjustStock = (materialId: string, quantity: number, reason: string) =>

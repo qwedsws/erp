@@ -24,7 +24,7 @@ export interface POReceiveItemInput {
 
 export function useReceivingWorkflows() {
   const { materials } = useMaterials();
-  const { receivePurchaseOrder } = usePurchaseOrders();
+  const { purchaseOrders, receivePurchaseOrder } = usePurchaseOrders();
   const { addSteelTag } = useSteelTags();
   const { addStockMovement } = useStocks({
     includeStocks: false,
@@ -34,6 +34,11 @@ export function useReceivingWorkflows() {
   const materialById = useMemo(
     () => new Map(materials.map((material) => [material.id, material])),
     [materials],
+  );
+
+  const purchaseOrderById = useMemo(
+    () => new Map(purchaseOrders.map((po) => [po.id, po])),
+    [purchaseOrders],
   );
 
   const receiveFromPurchaseOrder = async (input: {
@@ -52,6 +57,9 @@ export function useReceivingWorkflows() {
     );
     if (!receiveResult.ok) throw new Error(receiveResult.error);
 
+    const po = purchaseOrderById.get(input.poId);
+    const poProjectId = po?.project_id;
+
     const tagPromises: Promise<unknown>[] = [];
     for (const item of itemsToReceive) {
       const material = materialById.get(item.material_id);
@@ -67,6 +75,7 @@ export function useReceivingWorkflows() {
           weight: Number(entry.weight),
           status: 'AVAILABLE',
           purchase_order_id: input.poId,
+          project_id: poProjectId,
           location: entry.location || undefined,
           received_at: input.receivedAt,
           po_item_id: entry.po_item_id,

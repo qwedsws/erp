@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, X, ArrowRightLeft } from 'lucide-react';
+import { Check, X, ArrowRightLeft, Undo2 } from 'lucide-react';
 import { StatusBadge } from '@/components/common/status-badge';
 import { PR_STATUS_MAP } from '@/types';
 import type { PurchaseRequest, Material, Profile } from '@/types';
@@ -18,6 +18,7 @@ interface PurchaseRequestsTableProps {
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
   onConvertSingle: (id: string) => void;
+  onRevoke: (id: string) => void;
 }
 
 export function PurchaseRequestsTable({
@@ -31,6 +32,7 @@ export function PurchaseRequestsTable({
   onApprove,
   onReject,
   onConvertSingle,
+  onRevoke,
 }: PurchaseRequestsTableProps) {
   const router = useRouter();
   const allApprovedChecked =
@@ -141,13 +143,33 @@ export function PurchaseRequestsTable({
                         </>
                       )}
                       {isApproved && (
+                        <>
+                          <button
+                            onClick={() => onConvertSingle(pr.id)}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
+                            title="발주 전환"
+                          >
+                            <ArrowRightLeft size={12} />
+                            발주 전환
+                          </button>
+                          <button
+                            onClick={() => onRevoke(pr.id)}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium hover:bg-orange-200 transition-colors"
+                            title="철회"
+                          >
+                            <Undo2 size={12} />
+                            철회
+                          </button>
+                        </>
+                      )}
+                      {pr.status === 'REJECTED' && (
                         <button
-                          onClick={() => onConvertSingle(pr.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 transition-colors"
-                          title="발주 전환"
+                          onClick={() => onRevoke(pr.id)}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium hover:bg-orange-200 transition-colors"
+                          title="철회"
                         >
-                          <ArrowRightLeft size={12} />
-                          발주 전환
+                          <Undo2 size={12} />
+                          철회
                         </button>
                       )}
                     </div>

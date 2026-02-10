@@ -1,100 +1,243 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useProjects } from '@/hooks/projects/useProjects';
-import { useOrders } from '@/hooks/sales/useOrders';
+import React, { useMemo } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
-import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
-import { MoldType, Priority } from '@/types';
+import { SearchSelect } from '@/components/common/search-select';
+import { DatePickerCell } from '@/components/common/date-picker-cell';
+import { useProjectForm } from '@/hooks/projects/useProjectForm';
+import type { MoldType, Priority } from '@/domain/shared/entities';
+
+const cellInput =
+  'w-full h-8 px-2 rounded border border-input bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring';
+
+const MOLD_TYPE_OPTIONS: { value: MoldType; label: string }[] = [
+  { value: 'INJECTION', label: '사출금형' },
+  { value: 'PRESS', label: '프레스금형' },
+  { value: 'DIE_CASTING', label: '다이캐스팅금형' },
+  { value: 'BLOW', label: '블로우금형' },
+  { value: 'OTHER', label: '기타' },
+];
+
+const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
+  { value: 'HIGH', label: '긴급' },
+  { value: 'MEDIUM', label: '보통' },
+  { value: 'LOW', label: '낮음' },
+];
 
 export default function NewProjectPage() {
-  const router = useRouter();
-  const { orders } = useOrders();
-  const { addProject } = useProjects();
-  const { showError, showSuccess } = useFeedbackToast();
-  const [form, setForm] = useState({
-    order_id: '',
-    name: '',
-    mold_type: 'INJECTION' as MoldType,
-    priority: 'MEDIUM' as Priority,
-    due_date: '',
-    description: '',
-  });
+  const {
+    rows,
+    activeOrders,
+    validRowCount,
+    addRow,
+    removeRow,
+    updateRow,
+    handleSubmit,
+    isLoading,
+  } = useProjectForm();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name || !form.due_date) {
-      showError('필수 항목을 입력하세요');
-      return;
+  const orderOptions = useMemo(
+    () =>
+      activeOrders.map((o) => ({
+        value: o.id,
+        label: `${o.order_no} - ${o.title}`,
+        searchText: `${o.order_no} ${o.title}`,
+      })),
+    [activeOrders],
+  );
+
+  // 마지막 행에 프로젝트명 입력 시 자동 빈 행 추가
+  const handleNameChange = (index: number, value: string) => {
+    updateRow(index, 'name', value);
+    if (value && index === rows.length - 1) {
+      addRow();
     }
-    try {
-      await addProject({
-        order_id: form.order_id || undefined,
-        name: form.name,
-        mold_type: form.mold_type,
-        status: 'CONFIRMED',
-        priority: form.priority,
-        due_date: form.due_date,
-        description: form.description || undefined,
-      });
-      showSuccess('프로젝트가 생성되었습니다.');
-      router.push('/projects');
-    } catch (err) {
-      showError(err instanceof Error ? err.message : '프로젝트 생성 중 오류가 발생했습니다.');
+  };
+
+  const handleRowKeyDown = (e: React.KeyboardEvent, rowIndex: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (rowIndex === rows.length - 1) {
+        addRow();
+      }
+      setTimeout(() => {
+        const nextInput = document.querySelector<HTMLInputElement>(
+          `[data-row="${rowIndex + 1}"] td:nth-child(3) input`,
+        );
+        nextInput?.focus();
+      }, 0);
     }
   };
 
   return (
     <div>
-      <PageHeader title="프로젝트 생성" description="새로운 금형 프로젝트를 생성합니다" />
-      <form onSubmit={handleSubmit} className="max-w-2xl">
-        <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1.5">연결 수주</label>
-            <select value={form.order_id} onChange={(e) => setForm(prev => ({ ...prev, order_id: e.target.value }))} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="">선택 없음 (직접 생성)</option>
-              {orders.filter(o => o.status !== 'CANCELLED').map(o => (
-                <option key={o.id} value={o.id}>{o.order_no} - {o.title}</option>
-              ))}
-            </select>
+      {/* Back navigation */}
+      <div className="flex items-center gap-2 mb-4">
+        <Link href="/projects" className="p-1 rounded hover:bg-accent">
+          <ArrowLeft size={18} />
+        </Link>
+        <span className="text-sm text-muted-foreground">프로젝트</span>
+      </div>
+
+      <PageHeader
+        title="프로젝트 생성 (일괄)"
+        description="여러 금형 프로젝트를 한 번에 생성합니다"
+      />
+
+      <form onSubmit={(e) => void handleSubmit(e)}>
+        {/* Grid table */}
+        <div className="rounded-lg border border-border bg-card p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">프로젝트 목록</h3>
+            <button
+              type="button"
+              onClick={addRow}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border border-input hover:bg-accent transition-colors"
+            >
+              <Plus size={14} />
+              행 추가
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">프로젝트명 *</label>
-            <input value={form.name} onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))} required className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1.5">금형 종류 *</label>
-              <select value={form.mold_type} onChange={(e) => setForm(prev => ({ ...prev, mold_type: e.target.value as MoldType }))} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="INJECTION">사출금형</option>
-                <option value="PRESS">프레스금형</option>
-                <option value="DIE_CASTING">다이캐스팅금형</option>
-                <option value="BLOW">블로우금형</option>
-                <option value="OTHER">기타</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5">우선순위</label>
-              <select value={form.priority} onChange={(e) => setForm(prev => ({ ...prev, priority: e.target.value as Priority }))} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="HIGH">긴급</option>
-                <option value="MEDIUM">보통</option>
-                <option value="LOW">낮음</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5">납기일 *</label>
-              <input type="date" value={form.due_date} onChange={(e) => setForm(prev => ({ ...prev, due_date: e.target.value }))} required className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">설명</label>
-            <textarea value={form.description} onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))} rows={3} className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+
+          <div className="overflow-x-auto min-h-[320px]">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="px-2 py-2 text-center font-medium text-muted-foreground w-10">#</th>
+                  <th className="px-2 py-2 text-left font-medium text-muted-foreground min-w-[180px]">연결 수주</th>
+                  <th className="px-2 py-2 text-left font-medium text-muted-foreground min-w-[200px]">
+                    프로젝트명 <span className="text-destructive">*</span>
+                  </th>
+                  <th className="px-2 py-2 text-left font-medium text-muted-foreground min-w-[120px]">금형종류</th>
+                  <th className="px-2 py-2 text-left font-medium text-muted-foreground w-24">우선순위</th>
+                  <th className="px-2 py-2 text-left font-medium text-muted-foreground w-32">
+                    납기일 <span className="text-destructive">*</span>
+                  </th>
+                  <th className="px-2 py-2 text-left font-medium text-muted-foreground min-w-[160px]">설명</th>
+                  <th className="px-2 py-2 text-center font-medium text-muted-foreground w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <tr
+                    key={index}
+                    data-row={index}
+                    className="border-b border-border last:border-0 align-top"
+                  >
+                    {/* # */}
+                    <td className="px-2 py-2 text-center text-muted-foreground">{index + 1}</td>
+
+                    {/* 연결 수주 */}
+                    <td className="px-2 py-2">
+                      <SearchSelect
+                        options={orderOptions}
+                        value={row.order_id}
+                        onChange={(val) => updateRow(index, 'order_id', val)}
+                        placeholder="수주 검색"
+                        compact
+                      />
+                    </td>
+
+                    {/* 프로젝트명 */}
+                    <td className="px-2 py-2">
+                      <input
+                        type="text"
+                        value={row.name}
+                        onChange={(e) => handleNameChange(index, e.target.value)}
+                        placeholder="프로젝트명 입력"
+                        className={cellInput}
+                      />
+                    </td>
+
+                    {/* 금형종류 */}
+                    <td className="px-2 py-2">
+                      <select
+                        value={row.mold_type}
+                        onChange={(e) => updateRow(index, 'mold_type', e.target.value as MoldType)}
+                        className={cellInput}
+                      >
+                        {MOLD_TYPE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    {/* 우선순위 */}
+                    <td className="px-2 py-2">
+                      <select
+                        value={row.priority}
+                        onChange={(e) => updateRow(index, 'priority', e.target.value as Priority)}
+                        className={cellInput}
+                      >
+                        {PRIORITY_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    {/* 납기일 */}
+                    <td className="px-2 py-2">
+                      <DatePickerCell
+                        value={row.due_date}
+                        onChange={(val) => updateRow(index, 'due_date', val)}
+                        placeholder="납기일"
+                      />
+                    </td>
+
+                    {/* 설명 */}
+                    <td className="px-2 py-2">
+                      <input
+                        type="text"
+                        value={row.description}
+                        onChange={(e) => updateRow(index, 'description', e.target.value)}
+                        onKeyDown={(e) => handleRowKeyDown(e, index)}
+                        placeholder="설명 입력"
+                        className={cellInput}
+                      />
+                    </td>
+
+                    {/* 삭제 */}
+                    <td className="px-2 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => removeRow(index)}
+                        disabled={rows.length <= 1}
+                        className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="행 삭제"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-        <div className="flex items-center gap-3 mt-4">
-          <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">생성</button>
-          <button type="button" onClick={() => router.back()} className="px-4 py-2 border border-input rounded-md text-sm hover:bg-accent">취소</button>
+
+        {/* Submit */}
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={isLoading || validRowCount === 0}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus size={16} />
+            {isLoading ? '생성 중...' : `프로젝트 생성 (${validRowCount}건)`}
+          </button>
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="px-4 py-2 border border-input rounded-md text-sm hover:bg-accent"
+          >
+            취소
+          </button>
         </div>
       </form>
     </div>

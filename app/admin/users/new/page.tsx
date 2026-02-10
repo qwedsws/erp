@@ -12,6 +12,7 @@ export default function NewUserPage() {
   const { addProfile } = useProfiles();
   const { showError, showSuccess } = useFeedbackToast();
   const [form, setForm] = useState({
+    email: '',
     name: '',
     role: 'WORKER' as UserRole,
     department: '',
@@ -32,6 +33,7 @@ export default function NewUserPage() {
     }
     try {
       await addProfile({
+        email: form.email,
         name: form.name,
         role: form.role,
         department: form.department || undefined,
@@ -53,6 +55,18 @@ export default function NewUserPage() {
         <div className="rounded-lg border border-border bg-card p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="block text-sm font-medium mb-1.5">이메일 *</label>
+              <input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
+                required
+                placeholder="name@company.com"
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1.5">이름 *</label>
               <input
                 name="name"
@@ -62,6 +76,8 @@ export default function NewUserPage() {
                 className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">역할 *</label>
               <select

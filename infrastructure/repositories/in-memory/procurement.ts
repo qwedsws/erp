@@ -4,7 +4,7 @@ import type {
   IPurchaseRequestRepository,
 } from '@/domain/procurement/ports';
 import type { Supplier, PurchaseOrder, PurchaseRequest } from '@/domain/procurement/entities';
-import { generateId, generateDocumentNo, type QueryRangeOptions } from '@/domain/shared/types';
+import { generateId, generateDocumentNo, type QueryRangeOptions, type SupplierPageQuery, type PurchaseOrderPageQuery, type PurchaseRequestPageQuery, type PageResult } from '@/domain/shared/types';
 import { mockSuppliers, mockPurchaseOrders, mockPurchaseRequests } from '@/lib/mock-data';
 
 export class InMemorySupplierRepository implements ISupplierRepository {
@@ -36,6 +36,18 @@ export class InMemorySupplierRepository implements ISupplierRepository {
 
   async delete(id: string): Promise<void> {
     this.data = this.data.filter(s => s.id !== id);
+  }
+
+  async findPage(query: SupplierPageQuery): Promise<PageResult<Supplier>> {
+    let filtered = this.data;
+    if (query.search) {
+      const lower = query.search.toLowerCase();
+      filtered = filtered.filter(s => s.name.toLowerCase().includes(lower) || (s.business_no || '').toLowerCase().includes(lower));
+    }
+    const total = filtered.length;
+    const from = (query.page - 1) * query.pageSize;
+    const items = filtered.slice(from, from + query.pageSize);
+    return { items, total, page: query.page, pageSize: query.pageSize };
   }
 }
 
@@ -69,6 +81,28 @@ export class InMemoryPurchaseOrderRepository implements IPurchaseOrderRepository
 
   async delete(id: string): Promise<void> {
     this.data = this.data.filter(po => po.id !== id);
+  }
+
+  async findPage(query: PurchaseOrderPageQuery): Promise<PageResult<PurchaseOrder>> {
+    let filtered = [...this.data];
+    if (query.search) {
+      const lower = query.search.toLowerCase();
+      filtered = filtered.filter(po => po.po_no.toLowerCase().includes(lower));
+    }
+    if (query.status) {
+      filtered = filtered.filter(po => po.status === query.status);
+    }
+    if (query.dateFrom) {
+      filtered = filtered.filter(po => po.order_date >= query.dateFrom!);
+    }
+    if (query.dateTo) {
+      filtered = filtered.filter(po => po.order_date <= query.dateTo!);
+    }
+    filtered.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const total = filtered.length;
+    const from = (query.page - 1) * query.pageSize;
+    const items = filtered.slice(from, from + query.pageSize);
+    return { items, total, page: query.page, pageSize: query.pageSize };
   }
 }
 
@@ -126,5 +160,21 @@ export class InMemoryPurchaseRequestRepository implements IPurchaseRequestReposi
 
   async delete(id: string): Promise<void> {
     this.data = this.data.filter(pr => pr.id !== id);
+  }
+
+  async findPage(query: PurchaseRequestPageQuery): Promise<PageResult<PurchaseRequest>> {
+    let filtered = [...this.data];
+    if (query.search) {
+      const lower = query.search.toLowerCase();
+      filtered = filtered.filter(pr => pr.pr_no.toLowerCase().includes(lower));
+    }
+    if (query.status) {
+      filtered = filtered.filter(pr => pr.status === query.status);
+    }
+    filtered.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const total = filtered.length;
+    const from = (query.page - 1) * query.pageSize;
+    const items = filtered.slice(from, from + query.pageSize);
+    return { items, total, page: query.page, pageSize: query.pageSize };
   }
 }

@@ -10,7 +10,7 @@ export interface ConvertRequestsToPOInput {
 }
 
 export interface ConvertRequestsToPOResult {
-  purchaseOrder: PurchaseOrder;
+  purchaseOrders: PurchaseOrder[];
   updatedRequests: PurchaseRequest[];
 }
 
@@ -42,69 +42,96 @@ export class ConvertRequestsToPOUseCase {
       (await this.materialRepo.findByIds(uniqueMaterialIds)).map((material) => [material.id, material]),
     );
 
-    const items = requests.map((pr) => {
-      const material = materialById.get(pr.material_id);
+    // Group approved PRs by project_id (null key for common-stock PRs without a project)
+    const PROJECT_NULL_KEY = '__NO_PROJECT__';
+    const groupedByProject = new Map<string, typeof requests>();
+    for (const pr of requests) {
+      const key = pr.project_id ?? PROJECT_NULL_KEY;
+      if (!groupedByProject.has(key)) groupedByProject.set(key, []);
+      groupedByProject.get(key)!.push(pr);
+    }
 
-      // Inherit STEEL dimension fields from purchase request
-      const hasDimensions = pr.dimension_w && pr.dimension_l && pr.dimension_h;
-      const isSteel = material?.category === 'STEEL' && material.density && material.price_per_kg;
+    // Build one PO per project group
+    const purchaseOrders: PurchaseOrder[] = [];
 
-      let unitPrice = material?.unit_price ?? 0;
-      let pieceWeight: number | undefined;
-      let totalWeight: number | undefined;
+    for (const [projectKey, groupRequests] of groupedByProject) {
+      const items = groupRequests.map((pr) => {
+        const material = materialById.get(pr.material_id);
 
-      if (isSteel && hasDimensions && material.density && material.price_per_kg) {
-        pieceWeight = pr.piece_weight ?? (material.density * pr.dimension_w! * pr.dimension_l! * pr.dimension_h! / 1_000_000);
-        totalWeight = Math.round(pieceWeight * pr.quantity * 100) / 100;
-        unitPrice = Math.round(pieceWeight * material.price_per_kg);
-      }
+        // Inherit STEEL dimension fields from purchase request
+        const hasDimensions = pr.dimension_w && pr.dimension_l && pr.dimension_h;
+        const isSteel = material?.category === 'STEEL' && material.density && material.price_per_kg;
 
-      return {
-        id: generateId(),
-        material_id: pr.material_id,
-        quantity: pr.quantity,
-        unit_price: unitPrice,
-        received_quantity: 0,
-        // Pass dimension fields from PR to PO item
-        ...(hasDimensions ? {
-          dimension_w: pr.dimension_w,
-          dimension_l: pr.dimension_l,
-          dimension_h: pr.dimension_h,
-          piece_weight: pieceWeight,
-          total_weight: totalWeight,
-        } : {}),
-      };
-    });
+        let unitPrice = material?.unit_price ?? 0;
+        let pieceWeight: number | undefined;
+        let totalWeight: number | undefined;
 
-    const total_amount = items.reduce((sum, it) => {
-      // For items with total_weight and steel pricing, use weight-based amount
-      if (it.total_weight) {
-        const material = materialById.get(it.material_id);
-        if (material?.price_per_kg) {
-          return sum + Math.round(it.total_weight * material.price_per_kg);
+        if (isSteel && hasDimensions && material.density && material.price_per_kg) {
+          pieceWeight = pr.piece_weight ?? (material.density * pr.dimension_w! * pr.dimension_l! * pr.dimension_h! / 1_000_000);
+          totalWeight = Math.round(pieceWeight * pr.quantity * 100) / 100;
+          unitPrice = Math.round(pieceWeight * material.price_per_kg);
         }
-      }
-      return sum + it.quantity * it.unit_price;
-    }, 0);
 
-    const purchaseOrder = await this.poRepo.create({
-      supplier_id: input.supplierId,
-      status: 'DRAFT',
-      order_date: now.split('T')[0],
-      due_date: requests[0]?.required_date || now.split('T')[0],
-      items,
-      total_amount,
-    });
+        return {
+          id: generateId(),
+          material_id: pr.material_id,
+          quantity: pr.quantity,
+          unit_price: unitPrice,
+          received_quantity: 0,
+          // Pass dimension fields from PR to PO item
+          ...(hasDimensions ? {
+            dimension_w: pr.dimension_w,
+            dimension_l: pr.dimension_l,
+            dimension_h: pr.dimension_h,
+            piece_weight: pieceWeight,
+            total_weight: totalWeight,
+          } : {}),
+        };
+      });
+
+      const total_amount = items.reduce((sum, it) => {
+        // For items with total_weight and steel pricing, use weight-based amount
+        if (it.total_weight) {
+          const material = materialById.get(it.material_id);
+          if (material?.price_per_kg) {
+            return sum + Math.round(it.total_weight * material.price_per_kg);
+          }
+        }
+        return sum + it.quantity * it.unit_price;
+      }, 0);
+
+      const po = await this.poRepo.create({
+        supplier_id: input.supplierId,
+        ...(projectKey !== PROJECT_NULL_KEY ? { project_id: projectKey } : {}),
+        status: 'DRAFT',
+        order_date: now.split('T')[0],
+        due_date: groupRequests[0]?.required_date || now.split('T')[0],
+        items,
+        total_amount,
+      });
+
+      purchaseOrders.push(po);
+    }
+
+    // Build a map from project_id to created PO id for linking PRs
+    const poIdByProjectKey = new Map<string, string>();
+    for (const [projectKey, ] of groupedByProject) {
+      const po = purchaseOrders.find((p) =>
+        projectKey === PROJECT_NULL_KEY ? !p.project_id : p.project_id === projectKey,
+      );
+      if (po) poIdByProjectKey.set(projectKey, po.id);
+    }
 
     const updatedRequests = await Promise.all(
-      requests.map((pr) =>
-        this.prRepo.update(pr.id, {
+      requests.map((pr) => {
+        const key = pr.project_id ?? PROJECT_NULL_KEY;
+        return this.prRepo.update(pr.id, {
           status: 'CONVERTED',
-          po_id: purchaseOrder.id,
-        }),
-      ),
+          po_id: poIdByProjectKey.get(key),
+        });
+      }),
     );
 
-    return success({ purchaseOrder, updatedRequests });
+    return success({ purchaseOrders, updatedRequests });
   }
 }

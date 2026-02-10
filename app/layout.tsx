@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { AppLayout } from "@/components/layout/app-layout";
+import { ConditionalLayout } from "@/components/layout/conditional-layout";
 import { SupabaseProvider } from "@/components/providers/supabase-provider";
 import { FeedbackToastProvider } from "@/components/common/feedback-toast-provider";
 
@@ -22,7 +22,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <SupabaseProvider>
           <FeedbackToastProvider>
-            <AppLayout>{children}</AppLayout>
+            <ConditionalLayout>{children}</ConditionalLayout>
           </FeedbackToastProvider>
         </SupabaseProvider>
       </body>

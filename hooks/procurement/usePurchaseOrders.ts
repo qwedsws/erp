@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useERPStore } from '@/store';
 import {
   getMaterialPriceRepository,
@@ -20,7 +19,6 @@ import {
 } from '@/domain/procurement/use-cases/create-purchase-order';
 import { PostAccountingEventUseCase } from '@/domain/accounting/use-cases/post-accounting-event';
 import { useAsyncAction } from '@/hooks/shared/useAsyncAction';
-import { useInitialHydration } from '@/hooks/admin/useInitialHydration';
 
 export function usePurchaseOrders() {
   const purchaseOrders = useERPStore((s) => s.purchaseOrders);
@@ -35,12 +33,6 @@ export function usePurchaseOrders() {
   const addAccountingEventToCache = useERPStore((s) => s.addAccountingEventToCache);
   const addAPOpenItemToCache = useERPStore((s) => s.addAPOpenItemToCache);
   const { run, isLoading, error } = useAsyncAction();
-  const { hydrateResources, isResourceHydrated } = useInitialHydration();
-
-  useEffect(() => {
-    if (isResourceHydrated('purchaseOrders')) return;
-    void hydrateResources([{ resource: 'purchaseOrders' }]);
-  }, [hydrateResources, isResourceHydrated]);
 
   const repo = getPurchaseOrderRepository();
   const stockRepo = getStockRepository();

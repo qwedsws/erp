@@ -22,13 +22,13 @@ import type {
 } from '@/domain/shared/entities';
 
 export const mockProfiles: Profile[] = [
-  { id: 'p1', name: '김관리', role: 'ADMIN', department: '경영지원', phone: '010-1111-0001', hourly_rate: 50000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'p2', name: '이영업', role: 'SALES', department: '영업부', phone: '010-1111-0002', hourly_rate: 45000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'p3', name: '박설계', role: 'ENGINEER', department: '설계부', phone: '010-1111-0003', hourly_rate: 55000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'p4', name: '최생산', role: 'PRODUCTION', department: '생산관리', phone: '010-1111-0004', hourly_rate: 40000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'p5', name: '정가공', role: 'WORKER', department: '가공팀', phone: '010-1111-0005', hourly_rate: 35000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'p6', name: '한가공', role: 'WORKER', department: '가공팀', phone: '010-1111-0006', hourly_rate: 35000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
-  { id: 'p7', name: '김설계', role: 'ENGINEER', department: '설계부', phone: '010-1111-0007', hourly_rate: 50000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'p1', email: 'admin@example.com', name: '김관리', role: 'ADMIN', department: '경영지원', phone: '010-1111-0001', hourly_rate: 50000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'p2', email: 'sales@example.com', name: '이영업', role: 'SALES', department: '영업부', phone: '010-1111-0002', hourly_rate: 45000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'p3', email: 'engineer@example.com', name: '박설계', role: 'ENGINEER', department: '설계부', phone: '010-1111-0003', hourly_rate: 55000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'p4', email: 'production@example.com', name: '최생산', role: 'PRODUCTION', department: '생산관리', phone: '010-1111-0004', hourly_rate: 40000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'p5', email: 'worker1@example.com', name: '정가공', role: 'WORKER', department: '가공팀', phone: '010-1111-0005', hourly_rate: 35000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'p6', email: 'worker2@example.com', name: '한가공', role: 'WORKER', department: '가공팀', phone: '010-1111-0006', hourly_rate: 35000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'p7', email: 'engineer2@example.com', name: '김설계', role: 'ENGINEER', department: '설계부', phone: '010-1111-0007', hourly_rate: 50000, is_active: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
 ];
 
 export const mockCustomers: Customer[] = [

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useERPStore } from '@/store';
 import {
   getMaterialRepository,
@@ -9,9 +8,8 @@ import {
 } from '@/infrastructure/di/container';
 import { ConvertRequestsToPOUseCase } from '@/domain/procurement/use-cases/convert-requests-to-po';
 import { resolveApproverId } from '@/domain/procurement/services';
-import type { PurchaseOrder } from '@/domain/procurement/entities';
+import type { PurchaseOrder, PurchaseRequest } from '@/domain/procurement/entities';
 import { useAsyncAction } from '@/hooks/shared/useAsyncAction';
-import { useInitialHydration } from '@/hooks/admin/useInitialHydration';
 
 export function usePurchaseRequests() {
   const purchaseRequests = useERPStore((s) => s.purchaseRequests);
@@ -20,12 +18,6 @@ export function usePurchaseRequests() {
   const updateInCache = useERPStore((s) => s.updatePurchaseRequestInCache);
   const addPurchaseOrderToCache = useERPStore((s) => s.addPurchaseOrderToCache);
   const { run, isLoading, error } = useAsyncAction();
-  const { hydrateResources, isResourceHydrated } = useInitialHydration();
-
-  useEffect(() => {
-    if (isResourceHydrated('purchaseRequests')) return;
-    void hydrateResources([{ resource: 'purchaseRequests' }]);
-  }, [hydrateResources, isResourceHydrated]);
 
   const purchaseRequestRepo = getPurchaseRequestRepository();
   const purchaseOrderRepo = getPurchaseOrderRepository();
@@ -77,24 +69,38 @@ export function usePurchaseRequests() {
       updateInCache(id, updated);
     });
 
-  const convertRequestsToPO = async (prIds: string[], supplierId: string): Promise<PurchaseOrder | null> => {
+  const revokePurchaseRequest = (id: string) =>
+    run(async () => {
+      // null clears Supabase columns; cast needed because entity uses optional (undefined)
+      const updated = await purchaseRequestRepo.update(id, {
+        status: 'PENDING',
+        approved_by: null,
+        approved_at: null,
+        reject_reason: null,
+      } as unknown as Partial<PurchaseRequest>);
+      updateInCache(id, updated);
+    });
+
+  const convertRequestsToPO = async (prIds: string[], supplierId: string): Promise<PurchaseOrder[]> => {
     const asyncResult = await run(async () => {
       const result = await convertRequestsToPOUseCase.execute({ prIds, supplierId });
       if (!result.ok) throw result.error;
 
-      addPurchaseOrderToCache(result.value.purchaseOrder);
+      for (const po of result.value.purchaseOrders) {
+        addPurchaseOrderToCache(po);
+      }
       for (const request of result.value.updatedRequests) {
         updateInCache(request.id, request);
       }
-      return result.value.purchaseOrder;
+      return result.value.purchaseOrders;
     });
-    return asyncResult.ok ? asyncResult.value : null;
+    return asyncResult.ok ? asyncResult.value : [];
   };
 
   return {
     purchaseRequests,
     addPurchaseRequest, addPurchaseRequests, updatePurchaseRequest,
-    approvePurchaseRequest, rejectPurchaseRequest,
+    approvePurchaseRequest, rejectPurchaseRequest, revokePurchaseRequest,
     convertRequestsToPO,
     isLoading, error,
   };

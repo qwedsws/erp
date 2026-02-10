@@ -87,6 +87,7 @@ function handlePaymentConfirmed(input: PostingInput, accountByCode: Map<string, 
 function handlePOOrdered(input: PostingInput, accountByCode: Map<string, GLAccount>): PostingResult | null {
   const amount = input.payload.amount as number;
   const supplierId = input.payload.supplier_id as string;
+  const projectId = input.payload.project_id as string | undefined;
   const poNo = input.payload.po_no as string;
   const dueDate = input.payload.due_date as string;
   if (!amount || !supplierId) return null;
@@ -98,8 +99,8 @@ function handlePOOrdered(input: PostingInput, accountByCode: Map<string, GLAccou
   return {
     description: `발주 확정 - ${poNo || input.sourceId}`,
     lines: [
-      { line_no: 1, account_id: materialAccount.id, dr_amount: amount, cr_amount: 0, supplier_id: supplierId, memo: '원재료 입고' },
-      { line_no: 2, account_id: apAccount.id, dr_amount: 0, cr_amount: amount, supplier_id: supplierId, memo: '매입채무 발생' },
+      { line_no: 1, account_id: materialAccount.id, dr_amount: amount, cr_amount: 0, supplier_id: supplierId, project_id: projectId, memo: '원재료 입고' },
+      { line_no: 2, account_id: apAccount.id, dr_amount: 0, cr_amount: amount, supplier_id: supplierId, project_id: projectId, memo: '매입채무 발생' },
     ],
     apItem: {
       purchase_order_id: input.sourceId,

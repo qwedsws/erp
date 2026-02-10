@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan version="1.2">
+  <meta>
+    <title>Admin Hydration 기반 전면 서버 페이지네이션/검색 체계 개편 계획</title>
+    <created>2026-02-10</created>
+    <updated>2026-02-10</updated>
+    <owner>planner</owner>
+    <context>
+      <repoRoot>.</repoRoot>
+      <planPath>plans/admin-hydration-pagination-plan.xml</planPath>
+      <primaryFocusFile>hooks/admin/useInitialHydration.ts</primaryFocusFile>
+      <primaryRisk>대용량 리소스를 전역 하이드레이션으로 로드한 뒤 클라이언트에서 필터/페이지네이션하는 구조</primaryRisk>
+    </context>
+  </meta>
+
+  <scope>
+    <writeAllow>plans/**</writeAllow>
+    <writeAllow>**/*-overview.md</writeAllow>
+    <writeDeny>everything-else</writeDeny>
+    <notes><![CDATA[
+이 문서는 실행 계획과 핸드오프 맥락만 다룬다.
+실제 코드 수정은 executor(또는 Claude Code)가 externalChanges와 phases를 따라 수행한다.
+]]></notes>
+  </scope>
+
+  <statusModel>
+    <allowed>todo,in_progress,partial,done,blocked,failed,needs_replan</allowed>
+    <transition from="todo" to="in_progress"/>
+    <transition from="todo" to="needs_replan"/>
+    <transition from="in_progress" to="partial"/>
+    <transition from="in_progress" to="done"/>
+    <transition from="in_progress" to="blocked"/>
+    <transition from="in_progress" to="failed"/>
+    <transition from="partial" to="in_progress"/>
+    <transition from="partial" to="done"/>
+    <transition from="partial" to="blocked"/>
+    <transition from="partial" to="failed"/>
+    <transition from="blocked" to="in_progress"/>
+    <transition from="blocked" to="needs_replan"/>
+    <transition from="failed" to="in_progress"/>
+    <transition from="failed" to="needs_replan"/>
+    <transition from="needs_replan" to="todo"/>
+    <transition from="needs_replan" to="in_progress"/>
+  </statusModel>
+
+  <inventory>
+    <folder path="app/" overview="app/app-overview.md" status="done"/>
+    <folder path="hooks/" overview="hooks/hooks-overview.md" status="done"/>
+    <folder path="domain/" overview="domain/domain-overview.md" status="done"/>
+    <folder path="infrastructure/" overview="infrastructure/infrastructure-overview.md" status="done"/>
+    <folder path="store/" overview="store/store-overview.md" status="done"/>
+    <folder path="lib/" overview="lib/lib-overview.md" status="done"/>
+    <folder path="plans/" overview="plans/plans-overview.md" status="done"/>
+  </inventory>
+
+  <phases>
+    <phase id="P0" name="현황 고정 및 기준선 정의" status="done">
+      <tasks>
+        <task id="T0" status="done" owner="planner" dependsOn="" updatedAt="2026-02-10">
+          <summary><![CDATA[핵심 병목과 영향 범위를 고정한다]]></summary>
+          <details><![CDATA[
+핵심 병목: hooks/admin/useInitialHydration.ts의 DEFAULT_RESOURCE_LIMITS 기반 대량 선로딩.
+영향 범위: materials/procurement 리스트 화면과 이를 조합하는 hooks/use*PageData 계열.
+현재 패턴: findAll(limit) 후 클라이언트 검색/필터/페이지네이션.
+]]></details>
+          <outputs>
+            <file path="plans/admin-hydration-pagination-plan.xml" kind="plan"/>
+            <file path="plans/plans-overview.md" kind="overview"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[핵심 파일(useInitialHydration.ts)과 우선 마이그레이션 페이지가 문서에 명시된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="low"><![CDATA[현황 문서와 실제 코드가 미세하게 달라질 수 있다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P1" name="Domain 조회 계약 확장" status="done">
+      <tasks>
+        <task id="T1" status="done" owner="executor" dependsOn="T0" updatedAt="2026-02-10">
+          <summary><![CDATA[공통 페이지 조회 계약(Query + PageResult)을 domain/shared/types.ts에 추가]]></summary>
+          <details><![CDATA[
+목표: limit/offset만 가진 QueryRangeOptions를 유지하면서도 검색/정렬/상태 필터/총건수 반환을 지원할 최소 계약을 추가한다.
+권장 타입 예시:
+- QueryPageOptions { page, pageSize }
+- QuerySort { field, direction }
+- PageResult<T> { items, total, page, pageSize }
+주의: 과도한 제네릭 추상화 금지. materials/procurement에 필요한 필드부터 시작.
+]]></details>
+          <outputs>
+            <file path="domain/shared/types.ts" kind="source-edit"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[기존 findAll 시그니처는 깨지지 않고, 새 페이지 조회 타입이 컴파일된다.]]></criterion>
+            <criterion><![CDATA[eslint/build 기준으로 타입 참조 에러가 없다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[타입 확장 시 다수 Port/Repository 구현체가 동시 수정 필요해 초기 충돌 가능성이 있다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T2" status="done" owner="executor" dependsOn="T1" updatedAt="2026-02-10">
+          <summary><![CDATA[materials/procurement Port에 페이지 조회 메서드를 추가]]></summary>
+          <details><![CDATA[
+대상: domain/materials/ports.ts, domain/procurement/ports.ts.
+권장: findAll 유지 + listPage/findPage 같은 신규 메서드 추가.
+리소스별 최소 필터:
+- materials: search(코드/명), category
+- purchaseOrders: search(po_no/supplier), status, date range
+- purchaseRequests: status, date range
+- suppliers: search(name/business_no)
+]]></details>
+          <outputs>
+            <file path="domain/materials/ports.ts" kind="source-edit"/>
+            <file path="domain/procurement/ports.ts" kind="source-edit"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[새 메서드가 Port에 추가되고 구현체가 컴파일 가능한 상태로 맞춰진다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[Port 변경 누락 시 DI 경로 전체에서 타입 오류가 확산된다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P2" name="Infrastructure 조회 엔진 확장" status="done">
+      <tasks>
+        <task id="T3" status="done" owner="executor" dependsOn="T2" updatedAt="2026-02-10">
+          <summary><![CDATA[Supabase 조회 함수에 서버 검색/필터/카운트 추가]]></summary>
+          <details><![CDATA[
+대상: lib/supabase/materials.ts.
+실행 원칙:
+1) 기존 fetchXxx(options) 유지.
+2) 신규 fetchXxxPage(query) 추가.
+3) count는 Supabase select(..., { count: 'exact' })로 수집.
+4) 검색은 ilike, 상태/카테고리는 eq/in 중심의 단순 조건만 도입.
+복잡한 동적 쿼리 빌더는 도입하지 않는다(오버엔지니어링 방지).
+]]></details>
+          <outputs>
+            <file path="lib/supabase/materials.ts" kind="source-edit"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[PageResult 기반 API가 materials/procurement 주요 리소스에서 동작한다.]]></criterion>
+            <criterion><![CDATA[한 페이지 조회당 왕복 1회(+필요 시 참조 데이터 1회)로 제한된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="high"><![CDATA[purchase_orders + purchase_order_items 조인 쿼리에서 count/정렬 조합 성능 저하 가능성.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T4" status="done" owner="executor" dependsOn="T2" updatedAt="2026-02-10">
+          <summary><![CDATA[InMemory 구현체에 동일한 page/query 계약 반영]]></summary>
+          <details><![CDATA[
+대상:
+- infrastructure/repositories/in-memory/materials.ts
+- infrastructure/repositories/in-memory/procurement.ts
+목표: 로컬/테스트 환경에서도 동일 API를 사용하도록 정렬/검색/필터/페이지 슬라이싱을 구현.
+]]></details>
+          <outputs>
+            <file path="infrastructure/repositories/in-memory/materials.ts" kind="source-edit"/>
+            <file path="infrastructure/repositories/in-memory/procurement.ts" kind="source-edit"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[Supabase 여부와 무관하게 동일 hook 로직이 동작한다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="low"><![CDATA[InMemory 데이터셋이 작아 실제 성능 차이를 가리기 쉽다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T5" status="done" owner="executor" dependsOn="T3,T4" updatedAt="2026-02-10">
+          <summary><![CDATA[Repository 어댑터 계층에서 page 메서드 노출]]></summary>
+          <details><![CDATA[
+대상:
+- infrastructure/repositories/supabase/materials.ts
+- infrastructure/repositories/supabase/procurement.ts
+기존 findAll은 하위호환으로 유지하고, page 메서드는 신규 path에서만 사용한다.
+]]></details>
+          <outputs>
+            <file path="infrastructure/repositories/supabase/materials.ts" kind="source-edit"/>
+            <file path="infrastructure/repositories/supabase/procurement.ts" kind="source-edit"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[Container에서 주입되는 구현체가 새 page 메서드를 제공한다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[메서드 명/시그니처 불일치 시 런타임 이전에 타입 오류로 차단되지만 수정 범위가 넓다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P3" name="Hook 레이어 재구성(핵심)" status="done">
+      <tasks>
+        <task id="T6" status="done" owner="executor" dependsOn="T5" updatedAt="2026-02-10">
+          <summary><![CDATA[useInitialHydration의 역할 축소: 대형 리스트 선로딩 제거]]></summary>
+          <details><![CDATA[
+대상: hooks/admin/useInitialHydration.ts.
+조치:
+- DEFAULT_RESOURCE_LIMITS 기반 대형 리스트 일괄/선제 로드 로직 제거 또는 deprecated 처리.
+- 소형 참조 데이터(예: suppliers 등)만 선택적 유지 여부 판단.
+- 신규 page/query 훅이 데이터를 직접 요청하도록 책임 분리.
+중요: 기존 호출부를 한 번에 깨지 않도록 임시 호환 경로를 남긴다.
+]]></details>
+          <outputs>
+            <file path="hooks/admin/useInitialHydration.ts" kind="source-edit"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[초기 진입 시 불필요한 대량 findAll 호출이 제거된다.]]></criterion>
+            <criterion><![CDATA[기존 화면이 단계적 전환 기간에도 동작한다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="high"><![CDATA[호환 레이어 없이 제거하면 기존 hooks/materials/*, hooks/procurement/* 초기 로딩이 깨질 수 있다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T7" status="done" owner="executor" dependsOn="T5" updatedAt="2026-02-10">
+          <summary><![CDATA[리스트 전용 query hook 신설]]></summary>
+          <details><![CDATA[
+후보 파일:
+- hooks/materials/useMaterialListQuery.ts (신규)
+- hooks/procurement/usePurchaseOrderListQuery.ts (신규)
+- hooks/procurement/usePurchaseRequestListQuery.ts (신규)
+역할:
+- page/search/filter 상태 입력
+- repository page 메서드 호출
+- 로딩/에러/refresh 제공
+주의: React Query 같은 대형 프레임워크 도입 없이 기존 패턴(useAsyncAction + useState) 범위에서 구현.
+]]></details>
+          <outputs>
+            <file path="hooks/materials/useMaterialListQuery.ts" kind="source-edit"/>
+            <file path="hooks/procurement/usePurchaseOrderListQuery.ts" kind="source-edit"/>
+            <file path="hooks/procurement/usePurchaseRequestListQuery.ts" kind="source-edit"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[각 훅이 items + total + page + pageSize + isLoading + error + refresh를 반환한다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[mutation 후 목록과 detail cache 간 동기화 규칙이 불명확하면 데이터 불일치가 발생한다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P4" name="우선 화면 3개 전환" status="done">
+      <tasks>
+        <task id="T8" status="done" owner="executor" dependsOn="T7" updatedAt="2026-02-10">
+          <summary><![CDATA[발주 목록 페이지 서버 페이지네이션/검색 전환]]></summary>
+          <details><![CDATA[
+대상: app/materials/purchase-orders/page.tsx.
+현재: 전체 purchaseOrders를 메모리에서 filter/sort/slice.
+변경: query hook 호출 + 서버 검색/상태필터 + total 기반 pagination UI.
+]]></details>
+          <outputs>
+            <file path="app/materials/purchase-orders/page.tsx" kind="source-edit"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[페이지 전환/검색 입력 시 필요한 범위만 조회한다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[공급처명 검색(supplier join) 구현 전략을 단순화하지 않으면 쿼리 복잡도가 급증한다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T9" status="done" owner="executor" dependsOn="T7" updatedAt="2026-02-10">
+          <summary><![CDATA[구매요청 목록 + 페이지 데이터 훅 전환]]></summary>
+          <details><![CDATA[
+대상:
+- app/materials/purchase-requests/page.tsx
+- hooks/procurement/usePurchaseRequestsPageData.ts
+현재: purchaseRequests 전체를 가져와 탭/체크/전환 로직 수행.
+변경: query 결과(items/total)를 입력으로 받고 선택/배치 전환 UX는 유지.
+]]></details>
+          <outputs>
+            <file path="app/materials/purchase-requests/page.tsx" kind="source-edit"/>
+            <file path="hooks/procurement/usePurchaseRequestsPageData.ts" kind="source-edit"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[status 탭과 페이지네이션이 서버 조회와 일치한다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[체크박스 선택 상태가 페이지 이동 시 의도와 다르게 초기화될 수 있다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T10" status="done" owner="executor" dependsOn="T7" updatedAt="2026-02-10">
+          <summary><![CDATA[자재 마스터 목록 전환]]></summary>
+          <details><![CDATA[
+대상: app/materials/items/page.tsx.
+현재: materials 전체 + category 필터.
+변경: category/search/page를 서버로 이동, 화면은 결과 표시에 집중.
+주의: 재고/태그 집계가 필요하므로 1차 전환에서는 목록/검색만 서버화하고 집계는 기존 참조 캐시를 단계 유지한다.
+]]></details>
+          <outputs>
+            <file path="app/materials/items/page.tsx" kind="source-edit"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[카테고리/검색/페이지 전환이 전체 선로딩 없이 동작한다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[재고/태그 보조 데이터 로딩 전략이 없으면 행별 표시값 누락 가능.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P5" name="검증 및 롤아웃" status="done">
+      <tasks>
+        <task id="T11" status="done" owner="executor" dependsOn="T8,T9,T10" updatedAt="2026-02-10">
+          <summary><![CDATA[품질 게이트 수행 및 성능 회귀 점검]]></summary>
+          <details><![CDATA[
+필수:
+- npm run lint
+- npm run build
+- 수동 점검(자재/발주/구매요청 목록: 검색/필터/페이지 이동/수정 후 refresh)
+성능 확인:
+- 네트워크 탭 기준 초기 로드 호출 수
+- 검색 입력 시 호출 패턴(디바운스/중복 호출 방지)
+]]></details>
+          <outputs>
+            <file path="plans/admin-hydration-pagination-plan.xml" kind="plan-update"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[린트/빌드 통과 및 주요 화면 수동 시나리오 PASS.]]></criterion>
+            <criterion><![CDATA[초기 대량 hydration 호출이 제거되었음을 로그/네트워크로 확인.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="high"><![CDATA[build는 통과해도 실제 검색 쿼리 정확도가 떨어질 수 있어 수동 검증이 필수다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+
+  <externalChanges>
+    <change target="domain/shared/types.ts" owner="executor"><![CDATA[페이지 조회 계약 타입 추가]]></change>
+    <change target="domain/materials/ports.ts" owner="executor"><![CDATA[materials page query port 추가]]></change>
+    <change target="domain/procurement/ports.ts" owner="executor"><![CDATA[procurement page query port 추가]]></change>
+    <change target="lib/supabase/materials.ts" owner="executor"><![CDATA[Supabase 검색/필터/카운트 쿼리 추가]]></change>
+    <change target="infrastructure/repositories/in-memory/materials.ts" owner="executor"><![CDATA[InMemory page query 구현]]></change>
+    <change target="infrastructure/repositories/in-memory/procurement.ts" owner="executor"><![CDATA[InMemory page query 구현]]></change>
+    <change target="infrastructure/repositories/supabase/materials.ts" owner="executor"><![CDATA[page 메서드 연결]]></change>
+    <change target="infrastructure/repositories/supabase/procurement.ts" owner="executor"><![CDATA[page 메서드 연결]]></change>
+    <change target="hooks/admin/useInitialHydration.ts" owner="executor"><![CDATA[대형 선로딩 책임 축소/호환 경로 정리]]></change>
+    <change target="hooks/materials/useMaterialListQuery.ts" owner="executor"><![CDATA[신규 페이지 조회 훅]]></change>
+    <change target="hooks/procurement/usePurchaseOrderListQuery.ts" owner="executor"><![CDATA[신규 페이지 조회 훅]]></change>
+    <change target="hooks/procurement/usePurchaseRequestListQuery.ts" owner="executor"><![CDATA[신규 페이지 조회 훅]]></change>
+    <change target="hooks/procurement/usePurchaseRequestsPageData.ts" owner="executor"><![CDATA[query 결과 기반으로 페이지 데이터 조합]]></change>
+    <change target="app/materials/purchase-orders/page.tsx" owner="executor"><![CDATA[클라이언트 전량 필터링 제거]]></change>
+    <change target="app/materials/purchase-requests/page.tsx" owner="executor"><![CDATA[클라이언트 전량 필터링 제거]]></change>
+    <change target="app/materials/items/page.tsx" owner="executor"><![CDATA[클라이언트 전량 필터링 제거]]></change>
+  </externalChanges>
+
+  <handoff>
+    <forExecutor><![CDATA[
+권장 실행 순서:
+1) P1 완료 후 커밋(타입/Port)
+2) P2 완료 후 커밋(Repo/Supabase)
+3) P3 완료 후 커밋(Hook 재구성)
+4) P4를 페이지별 독립 커밋 3개로 분리
+5) P5 검증 결과를 이 plan changeLog에 반영
+
+빠른 시작 명령:
+- rg -n "useInitialHydration|DEFAULT_RESOURCE_LIMITS|findAll\\(" hooks app infrastructure lib domain
+- npm run lint
+- npm run build
+
+주의:
+- 과도한 공통화 금지(리소스별 query 스펙은 명시적으로 유지).
+- 기존 findAll/기존 화면을 한 번에 삭제하지 말고, 단계별 전환 후 제거한다.
+]]></forExecutor>
+    <forReviewer><![CDATA[
+리뷰 체크리스트:
+1) 대형 리소스 초기 hydration 호출이 실제로 줄었는가?
+2) 페이지/검색/필터가 서버 조회 결과(total 포함)와 일치하는가?
+3) Port-Repository-Hook-Presentation 의존 방향이 깨지지 않았는가?
+4) 오버엔지니어링 없이 최소 타입/최소 공통화로 유지됐는가?
+]]></forReviewer>
+  </handoff>
+
+  <changeLog>
+    <change when="2026-02-10" who="planner" type="init"><![CDATA[useInitialHydration 중심 서버 페이지네이션/검색 전환 실행계획 신규 작성.]]></change>
+    <change when="2026-02-10" who="planner" type="replan"><![CDATA[
+change: 기존 plans/plan.xml은 과거 완료 계획(자재 구매 구축)로 유지.
+impact: 현재 작업은 별도 활성 계획 파일로 분리되어 추적됨.
+nextAction: executor가 본 plan의 P1부터 순차 실행.
+]]></change>
+    <change when="2026-02-10" who="executor" type="update"><![CDATA[
+P1-P5 전체 실행 완료.
+P1: PageQuery/PageResult 타입 + materials/procurement ports에 findPage 추가.
+P2: Supabase fetchXxxPage 4개 + InMemory findPage 4개 + Supabase/InMemory 어댑터 연결.
+P3: useInitialHydration에서 materials/purchaseOrders/purchaseRequests 제거(5→suppliers/stocks/stockMovements/materialPrices/steelTags만 유지). 리스트 전용 query hook 3개 신설.
+P4: PO/PR/자재 목록 3개 페이지를 서버 페이지네이션으로 전환.
+P5: tsc 0 errors, eslint 0 errors, npm run build 성공.
+]]></change>
+  </changeLog>
+</plan>

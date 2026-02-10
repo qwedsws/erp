@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import Link from 'next/link';
 import { useProfiles } from '@/hooks/admin/useProfiles';
 import { PageHeader } from '@/components/common/page-header';
 import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
 import { UserRole, USER_ROLE_MAP } from '@/types';
-import { Plus, Users, UserCheck, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, UserCheck, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function UsersPage() {
   const { profiles, updateProfile } = useProfiles();
@@ -20,7 +19,8 @@ export default function UsersPage() {
       .filter(p => roleFilter === 'ALL' || p.role === roleFilter)
       .filter(p => {
         if (!search) return true;
-        return p.name.toLowerCase().includes(search.toLowerCase());
+        const q = search.toLowerCase();
+        return p.name.toLowerCase().includes(q) || (p.email ?? '').toLowerCase().includes(q);
       });
   }, [profiles, roleFilter, search]);
 
@@ -38,16 +38,7 @@ export default function UsersPage() {
     <div>
       <PageHeader
         title="사용자 관리"
-        description="시스템 사용자 계정을 관리합니다"
-        actions={
-          <Link
-            href="/admin/users/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90"
-          >
-            <Plus size={16} />
-            사용자 등록
-          </Link>
-        }
+        description="시스템 사용자 계정을 관리합니다. 계정은 Supabase Auth에서 생성됩니다."
       />
 
       {/* Summary Cards */}
@@ -110,7 +101,7 @@ export default function UsersPage() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="이름 검색..."
+            placeholder="이름, 이메일 검색..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-9 w-56 pl-9 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -124,6 +115,7 @@ export default function UsersPage() {
           <thead>
             <tr className="bg-muted/50 border-b border-border">
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">이름</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">이메일</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">역할</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">부서</th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">연락처</th>
@@ -141,6 +133,7 @@ export default function UsersPage() {
                   onClick={() => setExpandedId(expandedId === profile.id ? null : profile.id)}
                 >
                   <td className="px-4 py-3 font-medium">{profile.name}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{profile.email ?? '-'}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800">
                       {USER_ROLE_MAP[profile.role]}
@@ -167,7 +160,7 @@ export default function UsersPage() {
                 </tr>
                 {expandedId === profile.id && (
                   <tr className="border-b border-border">
-                    <td colSpan={8} className="p-0">
+                    <td colSpan={9} className="p-0">
                       <InlineEditForm
                         profile={profile}
                         onSave={(data) => {
@@ -186,7 +179,7 @@ export default function UsersPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
                   사용자가 없습니다.
                 </td>
               </tr>

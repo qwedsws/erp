@@ -4,6 +4,7 @@ import { useERPStore } from '@/store';
 import {
   getOrderRepository,
   getProjectRepository,
+  getProcessStepRepository,
   getGLAccountRepository,
   getJournalEntryRepository,
   getAROpenItemRepository,
@@ -25,6 +26,7 @@ export function useOrders() {
   const addToCache = useERPStore((s) => s.addOrderToCache);
   const updateInCache = useERPStore((s) => s.updateOrderInCache);
   const addProjectToCache = useERPStore((s) => s.addProjectToCache);
+  const addProcessStepToCache = useERPStore((s) => s.addProcessStepToCache);
   // Accounting cache
   const addJournalEntryToCache = useERPStore((s) => s.addJournalEntryToCache);
   const addAccountingEventToCache = useERPStore((s) => s.addAccountingEventToCache);
@@ -32,9 +34,11 @@ export function useOrders() {
 
   const orderRepo = getOrderRepository();
   const projectRepo = getProjectRepository();
+  const stepRepo = getProcessStepRepository();
   const createOrderWithProjectUseCase = new CreateOrderWithProjectUseCase(
     orderRepo,
     projectRepo,
+    stepRepo,
   );
   const createProjectFromOrderUseCase = new CreateProjectFromOrderUseCase(projectRepo);
   const postAccountingEventUseCase = new PostAccountingEventUseCase(
@@ -60,6 +64,9 @@ export function useOrders() {
     addToCache(result.value.order);
     if (result.value.project) {
       addProjectToCache(result.value.project);
+    }
+    for (const step of result.value.designSteps) {
+      addProcessStepToCache(step);
     }
 
     // Auto-journaling: ORDER_CONFIRMED

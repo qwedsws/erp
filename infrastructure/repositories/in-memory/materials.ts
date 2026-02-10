@@ -6,7 +6,7 @@ import type {
   ISteelTagRepository,
 } from '@/domain/materials/ports';
 import type { Material, Stock, StockMovement, MaterialPrice, SteelTag } from '@/domain/materials/entities';
-import { generateId, type QueryRangeOptions } from '@/domain/shared/types';
+import { generateId, type QueryRangeOptions, type MaterialPageQuery, type PageResult, type InventoryStats } from '@/domain/shared/types';
 import {
   mockMaterials,
   mockStocks,
@@ -50,6 +50,42 @@ export class InMemoryMaterialRepository implements IMaterialRepository {
 
   async delete(id: string): Promise<void> {
     this.data = this.data.filter(m => m.id !== id);
+  }
+
+  async findPage(query: MaterialPageQuery): Promise<PageResult<Material>> {
+    let filtered = this.data;
+    if (query.lowStockOnly) {
+      const stockByMaterialId = new Map(mockStocks.map(s => [s.material_id, s]));
+      filtered = filtered.filter(m => {
+        const stock = stockByMaterialId.get(m.id);
+        return (stock?.quantity ?? 0) < (m.safety_stock ?? 0);
+      });
+    }
+    if (query.search) {
+      const lower = query.search.toLowerCase();
+      filtered = filtered.filter(m => m.material_code.toLowerCase().includes(lower) || m.name.toLowerCase().includes(lower));
+    }
+    if (query.category) {
+      filtered = filtered.filter(m => m.category === query.category);
+    }
+    const total = filtered.length;
+    const from = (query.page - 1) * query.pageSize;
+    const items = filtered.slice(from, from + query.pageSize);
+    return { items, total, page: query.page, pageSize: query.pageSize };
+  }
+
+  async getInventoryStats(): Promise<InventoryStats> {
+    const stockByMaterialId = new Map(mockStocks.map(s => [s.material_id, s]));
+    let lowStockCount = 0;
+    let totalValue = 0;
+    for (const m of this.data) {
+      const stock = stockByMaterialId.get(m.id);
+      const qty = stock?.quantity ?? 0;
+      const price = stock?.avg_unit_price ?? m.unit_price ?? 0;
+      if (qty < (m.safety_stock ?? 0)) lowStockCount++;
+      totalValue += qty * price;
+    }
+    return { totalItems: this.data.length, lowStockCount, totalValue };
   }
 }
 

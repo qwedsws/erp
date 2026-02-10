@@ -12,6 +12,7 @@ export interface IProcessStepRepository {
   findAll(): Promise<ProcessStep[]>;
   findByProjectId(projectId: string): Promise<ProcessStep[]>;
   create(data: Omit<ProcessStep, 'id' | 'created_at' | 'updated_at'>): Promise<ProcessStep>;
+  createMany(data: Omit<ProcessStep, 'id' | 'created_at' | 'updated_at'>[]): Promise<ProcessStep[]>;
   update(id: string, data: Partial<ProcessStep>): Promise<ProcessStep>;
   delete(id: string): Promise<void>;
 }

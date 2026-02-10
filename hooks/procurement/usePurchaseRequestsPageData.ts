@@ -5,6 +5,7 @@ import { useMaterials } from '@/hooks/materials/useMaterials';
 import { useProfiles } from '@/hooks/admin/useProfiles';
 import { useSuppliers } from '@/hooks/procurement/useSuppliers';
 import { usePurchaseRequests } from '@/hooks/procurement/usePurchaseRequests';
+import { usePurchaseRequestListQuery } from '@/hooks/procurement/usePurchaseRequestListQuery';
 import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
 import type { PurchaseRequestStatus } from '@/domain/shared/entities';
 
@@ -40,8 +41,10 @@ export function usePurchaseRequestsPageData() {
     purchaseRequests,
     approvePurchaseRequest,
     rejectPurchaseRequest,
+    revokePurchaseRequest,
     convertRequestsToPO,
   } = usePurchaseRequests();
+  const listQuery = usePurchaseRequestListQuery();
   const { showError, showInfo, showSuccess } = useFeedbackToast();
 
   // --- Local state ---
@@ -52,6 +55,8 @@ export function usePurchaseRequestsPageData() {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
+  const [revokeTargetId, setRevokeTargetId] = useState<string | null>(null);
 
   // --- Derived data ---
   const materialById = useMemo(
@@ -63,6 +68,7 @@ export function usePurchaseRequestsPageData() {
     [profiles],
   );
 
+  // KPI counts from the full store data (not paginated)
   const kpiCounts = useMemo<KpiCounts>(() => {
     const total = purchaseRequests.length;
     const pending = purchaseRequests.filter((pr) => pr.status === 'PENDING').length;
@@ -71,15 +77,12 @@ export function usePurchaseRequestsPageData() {
     return { total, pending, approved, converted };
   }, [purchaseRequests]);
 
-  const filteredRequests = useMemo(() => {
-    return purchaseRequests
-      .filter((pr) => statusFilter === 'ALL' || pr.status === statusFilter)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }, [purchaseRequests, statusFilter]);
+  // Server-side paginated items
+  const items = listQuery.items;
 
   const approvedIds = useMemo(() => {
-    return new Set(filteredRequests.filter((pr) => pr.status === 'APPROVED').map((pr) => pr.id));
-  }, [filteredRequests]);
+    return new Set(items.filter((pr) => pr.status === 'APPROVED').map((pr) => pr.id));
+  }, [items]);
 
   const hasCheckedApproved = useMemo(() => {
     return [...checkedIds].some((id) => approvedIds.has(id));
@@ -89,17 +92,27 @@ export function usePurchaseRequestsPageData() {
     return [...checkedIds].filter((id) => approvedIds.has(id)).length;
   }, [checkedIds, approvedIds]);
 
+  // --- Status filter synced with server query ---
+  const handleSetStatusFilter = useCallback(
+    (tab: StatusTab) => {
+      setStatusFilter(tab);
+      listQuery.setStatus(tab === 'ALL' ? undefined : tab);
+    },
+    [listQuery],
+  );
+
   // --- Handlers: Approve ---
   const handleApprove = useCallback(
     async (id: string) => {
       const result = await approvePurchaseRequest(id);
       if (result.ok) {
         showSuccess('구매 요청을 승인했습니다.');
+        listQuery.refresh();
       } else {
         showError(result.error);
       }
     },
-    [approvePurchaseRequest, showError, showSuccess],
+    [approvePurchaseRequest, showError, showSuccess, listQuery],
   );
 
   // --- Handlers: Reject dialog ---
@@ -130,10 +143,35 @@ export function usePurchaseRequestsPageData() {
       setIsRejectDialogOpen(false);
       setRejectTargetId(null);
       setRejectReason('');
+      listQuery.refresh();
     } else {
       showError(result.error);
     }
-  }, [rejectReason, rejectPurchaseRequest, rejectTargetId, showError, showInfo, showSuccess]);
+  }, [rejectReason, rejectPurchaseRequest, rejectTargetId, showError, showInfo, showSuccess, listQuery]);
+
+  // --- Handlers: Revoke ---
+  const openRevokeDialog = useCallback((id: string) => {
+    setRevokeTargetId(id);
+    setIsRevokeDialogOpen(true);
+  }, []);
+
+  const closeRevokeDialog = useCallback((open: boolean) => {
+    setIsRevokeDialogOpen(open);
+    if (!open) setRevokeTargetId(null);
+  }, []);
+
+  const confirmRevoke = useCallback(async () => {
+    if (!revokeTargetId) return;
+    const result = await revokePurchaseRequest(revokeTargetId);
+    if (result.ok) {
+      showSuccess('승인/반려를 철회하고 승인대기로 되돌렸습니다.');
+      setIsRevokeDialogOpen(false);
+      setRevokeTargetId(null);
+      listQuery.refresh();
+    } else {
+      showError(result.error);
+    }
+  }, [revokeTargetId, revokePurchaseRequest, showError, showSuccess, listQuery]);
 
   // --- Handlers: Selection ---
   const toggleCheck = useCallback((id: string) => {
@@ -176,16 +214,23 @@ export function usePurchaseRequestsPageData() {
       showInfo('발주 전환할 승인 건을 선택하세요.');
       return;
     }
-    const po = await convertRequestsToPO(ids, selectedSupplierId);
-    if (!po) {
+    const pos = await convertRequestsToPO(ids, selectedSupplierId);
+    if (pos.length === 0) {
       showError('발주 전환에 실패했습니다.');
       return;
     }
-    showSuccess(`발주 ${po.po_no}가 생성되었습니다.`, '발주 생성 완료');
+    const poNos = pos.map((p) => p.po_no).join(', ');
+    showSuccess(
+      pos.length === 1
+        ? `발주 ${poNos}가 생성되었습니다.`
+        : `발주 ${pos.length}건(${poNos})이 생성되었습니다.`,
+      '발주 생성 완료',
+    );
     setCheckedIds(new Set());
     setShowConvertPanel(false);
     setSelectedSupplierId('');
-  }, [checkedIds, approvedIds, selectedSupplierId, convertRequestsToPO, showError, showInfo, showSuccess]);
+    listQuery.refresh();
+  }, [checkedIds, approvedIds, selectedSupplierId, convertRequestsToPO, showError, showInfo, showSuccess, listQuery]);
 
   const hideConvertPanel = useCallback(() => {
     setShowConvertPanel(false);
@@ -194,15 +239,21 @@ export function usePurchaseRequestsPageData() {
 
   // --- Return composed view model ---
   return {
-    // Data
-    filteredRequests,
+    // Data (server-side paginated)
+    items,
+    total: listQuery.total,
+    page: listQuery.page,
+    pageSize: listQuery.pageSize,
+    isLoading: listQuery.isLoading,
+    setPage: listQuery.setPage,
+    setSearch: listQuery.setSearch,
     materialById,
     profileById,
     suppliers,
     kpiCounts,
     // Tab
     statusFilter,
-    setStatusFilter,
+    setStatusFilter: handleSetStatusFilter,
     // Selection
     checkedIds,
     approvedIds,
@@ -221,6 +272,11 @@ export function usePurchaseRequestsPageData() {
     closeRejectDialog,
     setRejectReason,
     confirmReject,
+    // Revoke dialog
+    isRevokeDialogOpen,
+    openRevokeDialog,
+    closeRevokeDialog,
+    confirmRevoke,
     // Convert panel
     showConvertPanel,
     selectedSupplierId,

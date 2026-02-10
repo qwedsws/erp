@@ -41,6 +41,7 @@ import {
 } from '../repositories/in-memory/procurement';
 import { InMemoryInspectionRepository, InMemoryTryoutRepository, InMemoryDefectRepository } from '../repositories/in-memory/quality';
 import { InMemoryProfileRepository } from '../repositories/in-memory/admin';
+import { SupabaseProfileRepository } from '../repositories/supabase/admin';
 import {
   InMemoryGLAccountRepository,
   InMemoryJournalEntryRepository,
@@ -60,6 +61,10 @@ import {
   SupabasePurchaseOrderRepository,
   SupabasePurchaseRequestRepository,
 } from '../repositories/supabase/procurement';
+import {
+  SupabaseProjectRepository,
+  SupabaseProcessStepRepository,
+} from '../repositories/supabase/projects';
 
 const USE_SUPABASE_REPOS = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -128,12 +133,20 @@ export function getPaymentRepository(): IPaymentRepository {
 // --- Projects ---
 
 export function getProjectRepository(): IProjectRepository {
-  if (!projectRepo) projectRepo = new InMemoryProjectRepository();
+  if (!projectRepo) {
+    projectRepo = USE_SUPABASE_REPOS
+      ? new SupabaseProjectRepository()
+      : new InMemoryProjectRepository();
+  }
   return projectRepo;
 }
 
 export function getProcessStepRepository(): IProcessStepRepository {
-  if (!processStepRepo) processStepRepo = new InMemoryProcessStepRepository();
+  if (!processStepRepo) {
+    processStepRepo = USE_SUPABASE_REPOS
+      ? new SupabaseProcessStepRepository()
+      : new InMemoryProcessStepRepository();
+  }
   return processStepRepo;
 }
 
@@ -245,7 +258,11 @@ export function getDefectRepository(): IDefectRepository {
 // --- Admin ---
 
 export function getProfileRepository(): IProfileRepository {
-  if (!profileRepo) profileRepo = new InMemoryProfileRepository();
+  if (!profileRepo) {
+    profileRepo = USE_SUPABASE_REPOS
+      ? new SupabaseProfileRepository()
+      : new InMemoryProfileRepository();
+  }
   return profileRepo;
 }
 

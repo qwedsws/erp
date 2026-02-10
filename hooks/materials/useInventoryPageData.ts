@@ -1,14 +1,25 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useMaterials } from '@/hooks/materials/useMaterials';
 import { useStocks } from '@/hooks/materials/useStocks';
 import { useProjects } from '@/hooks/projects/useProjects';
 import { useSteelTags } from '@/hooks/procurement/useSteelTags';
+import { useInventoryListQuery } from '@/hooks/materials/useInventoryListQuery';
 import { useFeedbackToast } from '@/components/common/feedback-toast-provider';
 
 export function useInventoryPageData() {
-  const { materials } = useMaterials();
+  const {
+    items: materials,
+    total: pageTotal,
+    page,
+    pageSize,
+    isLoading,
+    stats,
+    setPage,
+    setSearch,
+    setLowStockOnly,
+    refresh,
+  } = useInventoryListQuery();
   const { stocks } = useStocks();
   const { projects } = useProjects();
   const {
@@ -22,6 +33,7 @@ export function useInventoryPageData() {
   const { showError } = useFeedbackToast();
 
   const [activeTab, setActiveTab] = useState<'all' | 'steel_tags'>('all');
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [allocatingTagId, setAllocatingTagId] = useState<string | null>(null);
   const [allocateProjectId, setAllocateProjectId] = useState<string>('');
 
@@ -59,7 +71,8 @@ export function useInventoryPageData() {
     };
   }, [steelTags]);
 
-  const inventoryData = useMemo(() => {
+  // Join paginated materials with hydrated stocks for display
+  const inventoryRows = useMemo(() => {
     return materials.map((material) => {
       const stock = stockByMaterialId.get(material.id);
       const quantity = stock?.quantity ?? 0;
@@ -80,9 +93,15 @@ export function useInventoryPageData() {
     });
   }, [materials, stockByMaterialId]);
 
-  const totalItems = inventoryData.length;
-  const lowStockCount = inventoryData.filter((row) => row.isLowStock).length;
-  const totalValue = inventoryData.reduce((sum, row) => sum + row.quantity * row.unit_price, 0);
+  // KPI stats from server aggregate
+  const totalItems = stats.totalItems;
+  const lowStockCount = stats.lowStockCount;
+  const totalValue = stats.totalValue;
+
+  const handleShowLowStockOnly = (val: boolean) => {
+    setShowLowStockOnly(val);
+    setLowStockOnly(val);
+  };
 
   const startAllocate = (tagId: string) => {
     setAllocatingTagId(tagId);
@@ -136,10 +155,21 @@ export function useInventoryPageData() {
     projects,
     steelTagData,
     steelTagStats,
-    inventoryData,
+    inventoryRows,
+    showLowStockOnly,
+    setShowLowStockOnly: handleShowLowStockOnly,
     totalItems,
     lowStockCount,
     totalValue,
+    // Pagination
+    page,
+    pageSize,
+    pageTotal,
+    isLoading,
+    setPage,
+    setSearch,
+    refresh,
+    // Tag actions
     getAvailableActions,
     startAllocate,
     cancelAllocate,

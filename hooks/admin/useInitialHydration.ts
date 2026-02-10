@@ -4,9 +4,6 @@ import { useCallback, useState } from 'react';
 import { useERPStore } from '@/store';
 import {
   getMaterialPriceRepository,
-  getMaterialRepository,
-  getPurchaseOrderRepository,
-  getPurchaseRequestRepository,
   getSteelTagRepository,
   getStockMovementRepository,
   getStockRepository,
@@ -16,11 +13,8 @@ import type { QueryRangeOptions } from '@/domain/shared/types';
 
 export type HydrationResource =
   | 'suppliers'
-  | 'materials'
   | 'stocks'
   | 'stockMovements'
-  | 'purchaseOrders'
-  | 'purchaseRequests'
   | 'materialPrices'
   | 'steelTags';
 
@@ -31,22 +25,16 @@ export interface HydrationRequest {
 
 const ALL_RESOURCES: HydrationResource[] = [
   'suppliers',
-  'materials',
   'stocks',
   'stockMovements',
-  'purchaseOrders',
-  'purchaseRequests',
   'materialPrices',
   'steelTags',
 ];
 
 const DEFAULT_RESOURCE_LIMITS: Record<HydrationResource, number> = {
   suppliers: 300,
-  materials: 500,
   stocks: 500,
   stockMovements: 1000,
-  purchaseOrders: 500,
-  purchaseRequests: 500,
   materialPrices: 1000,
   steelTags: 1000,
 };
@@ -59,11 +47,8 @@ export function useInitialHydration() {
   const setHydrated = useERPStore((s) => s.setHydrated);
 
   const setSuppliers = useERPStore((s) => s.setSuppliers);
-  const setMaterials = useERPStore((s) => s.setMaterials);
   const setStocks = useERPStore((s) => s.setStocks);
   const setStockMovements = useERPStore((s) => s.setStockMovements);
-  const setPurchaseOrders = useERPStore((s) => s.setPurchaseOrders);
-  const setPurchaseRequests = useERPStore((s) => s.setPurchaseRequests);
   const setMaterialPrices = useERPStore((s) => s.setMaterialPrices);
   const setSteelTags = useERPStore((s) => s.setSteelTags);
 
@@ -91,12 +76,6 @@ export function useInitialHydration() {
             setSuppliers(suppliers);
             break;
           }
-          case 'materials': {
-            const materialRepo = getMaterialRepository();
-            const materials = await materialRepo.findAll(hydratedOptions);
-            setMaterials(materials);
-            break;
-          }
           case 'stocks': {
             const stockRepo = getStockRepository();
             const stocks = await stockRepo.findAll(hydratedOptions);
@@ -107,18 +86,6 @@ export function useInitialHydration() {
             const movementRepo = getStockMovementRepository();
             const stockMovements = await movementRepo.findAll(hydratedOptions);
             setStockMovements(stockMovements);
-            break;
-          }
-          case 'purchaseOrders': {
-            const purchaseOrderRepo = getPurchaseOrderRepository();
-            const purchaseOrders = await purchaseOrderRepo.findAll(hydratedOptions);
-            setPurchaseOrders(purchaseOrders);
-            break;
-          }
-          case 'purchaseRequests': {
-            const purchaseRequestRepo = getPurchaseRequestRepository();
-            const purchaseRequests = await purchaseRequestRepo.findAll(hydratedOptions);
-            setPurchaseRequests(purchaseRequests);
             break;
           }
           case 'materialPrices': {
@@ -149,11 +116,8 @@ export function useInitialHydration() {
     },
     [
       setSuppliers,
-      setMaterials,
       setStocks,
       setStockMovements,
-      setPurchaseOrders,
-      setPurchaseRequests,
       setMaterialPrices,
       setSteelTags,
     ],

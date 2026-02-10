@@ -1,13 +1,14 @@
 'use client';
 
 import type { ChangeEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMaterials } from '@/hooks/materials/useMaterials';
 import { useStocks } from '@/hooks/materials/useStocks';
 import { useSuppliers } from '@/hooks/procurement/useSuppliers';
 import { useProjects } from '@/hooks/projects/useProjects';
 import { useSteelTags } from '@/hooks/procurement/useSteelTags';
-import type { MaterialCategory, Project, Supplier } from '@/domain/shared/entities';
+import { getMaterialRepository } from '@/infrastructure/di/container';
+import type { Material, MaterialCategory, Project, Supplier } from '@/domain/shared/entities';
 
 export interface MaterialEditForm {
   name: string;
@@ -74,9 +75,7 @@ function parseOptionalNumber(value: string): number | undefined {
 }
 
 export function useMaterialDetailViewModel(materialId?: string) {
-  const { materials, materialPrices, updateMaterial, deleteMaterial } = useMaterials({
-    includeMaterialPrices: true,
-  });
+  const { materials, materialPrices, updateMaterial, deleteMaterial } = useMaterials();
   const { stocks, stockMovements } = useStocks({ includeMovements: true });
   const { suppliers } = useSuppliers();
   const { projects } = useProjects();
@@ -85,11 +84,24 @@ export function useMaterialDetailViewModel(materialId?: string) {
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<MaterialEditForm>(createEmptyEditForm);
+  const [fetchedMaterial, setFetchedMaterial] = useState<Material | null>(null);
 
-  const material = useMemo(
+  const cachedMaterial = useMemo(
     () => materials.find((item) => item.id === materialId),
     [materials, materialId],
   );
+
+  // Fetch from repository if not found in store cache (e.g. server-paginated data)
+  useEffect(() => {
+    if (cachedMaterial || !materialId) return;
+    let cancelled = false;
+    getMaterialRepository().findById(materialId).then((m) => {
+      if (!cancelled && m) setFetchedMaterial(m);
+    });
+    return () => { cancelled = true; };
+  }, [cachedMaterial, materialId]);
+
+  const material = cachedMaterial ?? fetchedMaterial;
 
   const stock = useMemo(
     () => stocks.find((item) => item.material_id === materialId),

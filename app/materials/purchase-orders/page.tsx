@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { usePurchaseOrders } from '@/hooks/procurement/usePurchaseOrders';
+import { usePurchaseOrderListQuery } from '@/hooks/procurement/usePurchaseOrderListQuery';
 import { useSuppliers } from '@/hooks/procurement/useSuppliers';
 import { useMaterials } from '@/hooks/materials/useMaterials';
 import { PageHeader } from '@/components/common/page-header';
@@ -11,18 +11,19 @@ import { StatusBadge } from '@/components/common/status-badge';
 import { TablePagination } from '@/components/common/table-pagination';
 import { PO_STATUS_MAP, PurchaseOrderStatus } from '@/types';
 import type { PurchaseOrder, Material } from '@/types';
-import { Plus, Filter } from 'lucide-react';
+import { Plus, Filter, Loader2 } from 'lucide-react';
 
 const PAGE_SIZE = 20;
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
-  const { purchaseOrders } = usePurchaseOrders();
+  const {
+    items, total, page, pageSize, isLoading, setPage, setSearch, setStatus,
+  } = usePurchaseOrderListQuery({ pageSize: PAGE_SIZE });
   const { suppliers } = useSuppliers();
   const { materials } = useMaterials();
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | 'ALL'>('ALL');
-  const [search, setSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchInput, setSearchInput] = useState('');
 
   const supplierById = useMemo(
     () => new Map(suppliers.map((supplier) => [supplier.id, supplier])),
@@ -33,30 +34,6 @@ export default function PurchaseOrdersPage() {
     () => new Map(materials.map((m) => [m.id, m])),
     [materials],
   );
-
-  const filtered = useMemo(() => {
-    return purchaseOrders
-      .filter(po => statusFilter === 'ALL' || po.status === statusFilter)
-      .filter(po => {
-        if (!search) return true;
-        const lower = search.toLowerCase();
-        const supplier = supplierById.get(po.supplier_id);
-        return po.po_no.toLowerCase().includes(lower) ||
-          (supplier?.name || '').toLowerCase().includes(lower);
-      })
-      .sort((a, b) => b.order_date.localeCompare(a.order_date));
-  }, [purchaseOrders, supplierById, statusFilter, search]);
-
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)),
-    [filtered.length],
-  );
-  const page = Math.min(currentPage, totalPages);
-
-  const paged = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, page]);
 
   const statusTabs: (PurchaseOrderStatus | 'ALL')[] = ['ALL', 'DRAFT', 'ORDERED', 'PARTIAL_RECEIVED', 'RECEIVED'];
 
@@ -98,7 +75,7 @@ export default function PurchaseOrdersPage() {
               key={status}
               onClick={() => {
                 setStatusFilter(status);
-                setCurrentPage(1);
+                setStatus(status === 'ALL' ? undefined : status);
               }}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 statusFilter === status
@@ -113,10 +90,10 @@ export default function PurchaseOrdersPage() {
         <input
           type="text"
           placeholder="발주번호, 공급처 검색..."
-          value={search}
+          value={searchInput}
           onChange={(e) => {
+            setSearchInput(e.target.value);
             setSearch(e.target.value);
-            setCurrentPage(1);
           }}
           className="ml-auto h-9 w-64 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
@@ -135,50 +112,60 @@ export default function PurchaseOrdersPage() {
             </tr>
           </thead>
           <tbody>
-            {paged.map(po => {
-              const supplier = supplierById.get(po.supplier_id);
-              const steelInfo = steelSummary(po, materialById);
-              return (
-                <tr
-                  key={po.id}
-                  className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/30"
-                  onClick={() => router.push(`/materials/purchase-orders/${po.id}`)}
-                >
-                  <td className="px-4 py-3">
-                    <span className="font-mono text-xs">{po.po_no}</span>
-                    {steelInfo && (
-                      <span className="block text-[11px] text-muted-foreground mt-0.5">
-                        {po.items.length}건 · {steelInfo}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-medium">{supplier?.name || '-'}</td>
-                  <td className="px-4 py-3">{po.order_date}</td>
-                  <td className="px-4 py-3">{po.due_date || '-'}</td>
-                  <td className="px-4 py-3 text-right">
-                    {po.total_amount != null ? `${po.total_amount.toLocaleString()}원` : '-'}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <StatusBadge status={po.status} statusMap={PO_STATUS_MAP} />
-                  </td>
-                </tr>
-              );
-            })}
-            {paged.length === 0 && (
+            {isLoading ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin" />
+                    데이터를 불러오는 중...
+                  </span>
+                </td>
+              </tr>
+            ) : items.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   발주 데이터가 없습니다.
                 </td>
               </tr>
+            ) : (
+              items.map(po => {
+                const supplier = supplierById.get(po.supplier_id);
+                const steelInfo = steelSummary(po, materialById);
+                return (
+                  <tr
+                    key={po.id}
+                    className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/30"
+                    onClick={() => router.push(`/materials/purchase-orders/${po.id}`)}
+                  >
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-xs">{po.po_no}</span>
+                      {steelInfo && (
+                        <span className="block text-[11px] text-muted-foreground mt-0.5">
+                          {po.items.length}건 · {steelInfo}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-medium">{supplier?.name || '-'}</td>
+                    <td className="px-4 py-3">{po.order_date}</td>
+                    <td className="px-4 py-3">{po.due_date || '-'}</td>
+                    <td className="px-4 py-3 text-right">
+                      {po.total_amount != null ? `${po.total_amount.toLocaleString()}원` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <StatusBadge status={po.status} statusMap={PO_STATUS_MAP} />
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
       <TablePagination
-        totalCount={filtered.length}
+        totalCount={total}
         currentPage={page}
-        pageSize={PAGE_SIZE}
-        onPageChange={setCurrentPage}
+        pageSize={pageSize}
+        onPageChange={setPage}
       />
     </div>
   );

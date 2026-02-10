@@ -22,9 +22,9 @@ Project (프로젝트 = 금형 1개)
 │
 Material (자재/부품)
 ├── MaterialStock (재고)
-├── PurchaseRequest (구매 요청)
-│   └── PurchaseOrder (발주)
-│       └── GoodsReceipt (입고)
+├── PurchaseRequest (구매 요청) ── project_id → Project
+│   └── PurchaseOrder (발주) ── project_id → Project
+│       └── GoodsReceipt (입고) ── project_id 전파
 │
 Outsource (외주)
 ├── OutsourceRequest (외주 요청)
@@ -55,6 +55,7 @@ Employee (직원)
 프로젝트 상태 자동 전환 규칙:
 | 트리거 | 프로젝트 상태 변경 |
 |--------|-------------------|
+| 수주 확정 (Order 생성) | → `수주확정` + 설계 공정 4단계 자동 시드 (DESIGN_3D/2D/REVIEW/BOM) |
 | 첫 번째 설계 공정 시작 | → `설계중` |
 | 모든 설계 공정 완료 | → `설계완료` |
 | 자재 준비 공정 시작 | → `자재준비` |
@@ -62,6 +63,26 @@ Employee (직원)
 | 조립 공정 시작 | → `조립중` |
 | 트라이아웃 공정 시작 | → `트라이아웃` |
 | 최종검사 합격 | → `출하가능` |
+
+> **구현 완료**: `resolveProjectStatusFromSteps()` — 공정 단계 완료 상태를 기반으로 프로젝트 상태를 자동 산출한다.
+> `isStatusLater()` 가드로 상태 전환은 전진(forward-only)만 허용한다 (역행 방지).
+> WorkOrder START/COMPLETE 시 연결된 ProcessStep과 Project 상태가 자동 동기화된다.
+
+### 2.3 수주→설계→구매→생산 E2E 데이터 흐름
+
+프로젝트 기준(`project_id`)으로 전 도메인의 데이터가 연결된다:
+
+```
+Order(수주) → Project(프로젝트) → ProcessStep(설계4단계 자동시드)
+  └→ DESIGN_BOM 완료 → PurchaseRequest(구매요청) 자동 생성 (project_id 전파)
+       └→ PurchaseOrder(발주) 프로젝트별 자동 분할 (project_id 설정)
+            └→ 입고 → StockMovement(IN) + SteelTag에 project_id 전파
+                 └→ 출고(STOCK_OUT) → 자동분개 (WIP DR / Material CR, project_id 포함)
+```
+
+- **ConvertRequestsToPO**: 혼합 프로젝트 PR → 프로젝트별 PO 자동 분할 (`purchaseOrders[]` 다건 반환)
+- **자동분개 project_id**: PO_ORDERED, STOCK_OUT 분개 라인에 `project_id` 포함
+- **데이터 정합성**: `/admin/data-integrity`에서 project_id 누락률, 상태 불일치, 문서 연결 누락 점검
 
 ---
 

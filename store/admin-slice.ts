@@ -1,6 +1,5 @@
 import type { StateCreator } from 'zustand';
 import type { Profile } from '@/domain/admin/entities';
-import { mockProfiles } from '@/lib/mock-data';
 
 export interface AdminSlice {
   profiles: Profile[];
@@ -14,7 +13,7 @@ export interface AdminSlice {
 }
 
 export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (set) => ({
-  profiles: mockProfiles,
+  profiles: [],
   isHydrated: false,
 
   setProfiles: (profiles) => set({ profiles }),

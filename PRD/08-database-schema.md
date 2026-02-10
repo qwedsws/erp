@@ -286,10 +286,30 @@ CREATE TABLE suppliers (
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE purchase_requests (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pr_no           TEXT UNIQUE NOT NULL,         -- PR-2026-001
+  material_id     UUID REFERENCES materials(id),
+  project_id      UUID REFERENCES projects(id), -- 프로젝트 연결 (BOM→PR 자동 생성 시 설정)
+  quantity        NUMERIC(12,4) NOT NULL,
+  unit_price      NUMERIC(12,2),
+  required_date   DATE,
+  reason          TEXT,
+  status          TEXT NOT NULL CHECK (status IN ('DRAFT','PENDING','APPROVED','REJECTED','ORDERED')),
+  requested_by    UUID REFERENCES profiles(id),
+  approved_by     UUID REFERENCES profiles(id),
+  dimension_w     NUMERIC(10,2),               -- STEEL 가로(mm)
+  dimension_l     NUMERIC(10,2),               -- STEEL 세로(mm)
+  dimension_h     NUMERIC(10,2),               -- STEEL 높이(mm)
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
 CREATE TABLE purchase_orders (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   po_no           TEXT UNIQUE NOT NULL,         -- PO-2026-001
   supplier_id     UUID REFERENCES suppliers(id),
+  project_id      TEXT REFERENCES projects(id), -- 프로젝트 연결 (PR→PO 변환 시 자동 설정)
   status          TEXT NOT NULL CHECK (status IN ('DRAFT','ORDERED','PARTIAL_RECEIVED','RECEIVED','CANCELLED')),
   settlement_type TEXT NOT NULL DEFAULT 'CREDIT' CHECK (settlement_type IN ('CREDIT','CASH')),
                                               -- CREDIT=외상매입(매입채무), CASH=현금매입(현금/예금)
@@ -301,6 +321,8 @@ CREATE TABLE purchase_orders (
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
+
+CREATE INDEX idx_purchase_orders_project_id ON purchase_orders(project_id);
 ```
 
 ### 8.6 품질
@@ -493,7 +515,8 @@ CREATE TABLE accounting_events (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source_type       TEXT NOT NULL,                    -- ORDER, PAYMENT, PURCHASE_ORDER, STOCK_MOVEMENT, PROJECT, WORK_ORDER
   source_id         UUID NOT NULL,
-  event_type        TEXT NOT NULL,                    -- ORDER_CONFIRMED, PAYMENT_CONFIRMED, PO_ORDERED, STOCK_OUT ...
+  event_type        TEXT NOT NULL,                    -- ORDER_CONFIRMED, PAYMENT_CONFIRMED, PO_ORDERED, STOCK_OUT
+                                                      -- (구현 완료: 4종 자동분개 트리거)
   occurred_at       TIMESTAMPTZ NOT NULL,
   payload           JSONB NOT NULL,                   -- 계산 근거 스냅샷(단가, 수량, 참조번호)
   status            TEXT NOT NULL DEFAULT 'POSTED' CHECK (status IN ('POSTED','REVERSED','ERROR')),

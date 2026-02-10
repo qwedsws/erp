@@ -1,7 +1,7 @@
 import type { Order } from '../entities';
 import type { IOrderRepository } from '../ports';
-import type { Project, MoldType, Priority } from '../../projects/entities';
-import type { IProjectRepository } from '../../projects/ports';
+import type { Project, ProcessStep, MoldType, Priority } from '../../projects/entities';
+import type { IProjectRepository, IProcessStepRepository } from '../../projects/ports';
 import { type Result, success, failure } from '@/domain/shared/types';
 import { ValidationError } from '@/domain/shared/errors';
 
@@ -20,12 +20,21 @@ export interface CreateOrderWithProjectInput {
 export interface CreateOrderWithProjectResult {
   order: Order;
   project: Project | null;
+  designSteps: ProcessStep[];
 }
+
+const DESIGN_STEPS = [
+  { process_code: 'DESIGN_3D', process_name: '3D 설계', sequence: 1 },
+  { process_code: 'DESIGN_2D', process_name: '2D 도면', sequence: 2 },
+  { process_code: 'DESIGN_REVIEW', process_name: '설계 검토', sequence: 3 },
+  { process_code: 'DESIGN_BOM', process_name: 'BOM 작성', sequence: 4 },
+] as const;
 
 export class CreateOrderWithProjectUseCase {
   constructor(
     private readonly orderRepo: IOrderRepository,
     private readonly projectRepo: IProjectRepository,
+    private readonly stepRepo: IProcessStepRepository,
   ) {}
 
   async execute(input: CreateOrderWithProjectInput): Promise<Result<CreateOrderWithProjectResult>> {
@@ -44,7 +53,7 @@ export class CreateOrderWithProjectUseCase {
     });
 
     if (!input.createProject) {
-      return success({ order, project: null });
+      return success({ order, project: null, designSteps: [] });
     }
 
     const project = await this.projectRepo.create({
@@ -57,6 +66,30 @@ export class CreateOrderWithProjectUseCase {
       description: input.notes,
     });
 
-    return success({ order, project });
+    // Idempotency: check if design steps already exist for this project
+    const existing = await this.stepRepo.findByProjectId(project.id);
+    const hasDesignSteps = existing.some((s) => s.category === 'DESIGN');
+
+    if (hasDesignSteps) {
+      return success({
+        order,
+        project,
+        designSteps: existing.filter((s) => s.category === 'DESIGN'),
+      });
+    }
+
+    // Seed initial design process steps
+    const stepData = DESIGN_STEPS.map((s) => ({
+      project_id: project.id,
+      category: 'DESIGN' as const,
+      process_code: s.process_code,
+      process_name: s.process_name,
+      sequence: s.sequence,
+      status: 'PLANNED' as const,
+    }));
+
+    const designSteps = await this.stepRepo.createMany(stepData);
+
+    return success({ order, project, designSteps });
   }
 }

@@ -52,6 +52,18 @@ export class InMemoryProcessStepRepository implements IProcessStepRepository {
     return step;
   }
 
+  async createMany(data: Omit<ProcessStep, 'id' | 'created_at' | 'updated_at'>[]): Promise<ProcessStep[]> {
+    const now = new Date().toISOString();
+    const steps = data.map((d) => ({
+      ...d,
+      id: generateId(),
+      created_at: now,
+      updated_at: now,
+    } as ProcessStep));
+    this.data.push(...steps);
+    return steps;
+  }
+
   async update(id: string, data: Partial<ProcessStep>): Promise<ProcessStep> {
     const idx = this.data.findIndex(ps => ps.id === id);
     if (idx === -1) throw new Error(`ProcessStep not found: ${id}`);

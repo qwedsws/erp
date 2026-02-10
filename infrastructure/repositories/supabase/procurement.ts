@@ -4,7 +4,7 @@ import type {
   IPurchaseRequestRepository,
 } from '@/domain/procurement/ports';
 import type { Supplier, PurchaseOrder, PurchaseRequest } from '@/domain/procurement/entities';
-import type { QueryRangeOptions } from '@/domain/shared/types';
+import type { QueryRangeOptions, SupplierPageQuery, PurchaseOrderPageQuery, PurchaseRequestPageQuery, PageResult } from '@/domain/shared/types';
 import * as sb from '@/lib/supabase/materials';
 
 export class SupabaseSupplierRepository implements ISupplierRepository {
@@ -33,11 +33,19 @@ export class SupabaseSupplierRepository implements ISupplierRepository {
   async delete(id: string): Promise<void> {
     await sb.deleteSupplierDB(id);
   }
+
+  async findPage(query: SupplierPageQuery): Promise<PageResult<Supplier>> {
+    return sb.fetchSuppliersPage(query);
+  }
 }
 
 export class SupabasePurchaseOrderRepository implements IPurchaseOrderRepository {
   async findAll(options?: QueryRangeOptions): Promise<PurchaseOrder[]> {
     return sb.fetchPurchaseOrders(options);
+  }
+
+  async findPage(query: PurchaseOrderPageQuery): Promise<PageResult<PurchaseOrder>> {
+    return sb.fetchPurchaseOrdersPage(query);
   }
 
   async findById(id: string): Promise<PurchaseOrder | null> {
@@ -67,6 +75,10 @@ export class SupabasePurchaseOrderRepository implements IPurchaseOrderRepository
 export class SupabasePurchaseRequestRepository implements IPurchaseRequestRepository {
   async findAll(options?: QueryRangeOptions): Promise<PurchaseRequest[]> {
     return sb.fetchPurchaseRequests(options);
+  }
+
+  async findPage(query: PurchaseRequestPageQuery): Promise<PageResult<PurchaseRequest>> {
+    return sb.fetchPurchaseRequestsPage(query);
   }
 
   async findById(id: string): Promise<PurchaseRequest | null> {

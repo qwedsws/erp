@@ -1,32 +1,28 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/common/page-header';
-import { DataTable } from '@/components/common/data-table';
+import { TablePagination } from '@/components/common/table-pagination';
 import { useInventoryPageData } from '@/hooks/materials/useInventoryPageData';
 import { MATERIAL_CATEGORY_MAP } from '@/types';
-import { AlertTriangle, ClipboardCheck, DollarSign, Package, PackageMinus, Settings2, Tag } from 'lucide-react';
+import {
+  AlertTriangle,
+  ClipboardCheck,
+  DollarSign,
+  Loader2,
+  Package,
+  PackageMinus,
+  Search,
+  Settings2,
+  Tag,
+} from 'lucide-react';
 import { SteelTagSection } from './_components/steel-tag-section';
-
-interface InventoryRow {
-  id: string;
-  material_code: string;
-  name: string;
-  category: string;
-  specification: string;
-  unit: string;
-  quantity: number;
-  safety_stock: number;
-  location_code: string;
-  unit_price: number;
-  isLowStock: boolean;
-  [key: string]: unknown;
-}
 
 export default function InventoryPage() {
   const router = useRouter();
+  const [searchInput, setSearchInput] = useState('');
   const {
     activeTab,
     setActiveTab,
@@ -36,10 +32,20 @@ export default function InventoryPage() {
     projects,
     steelTagData,
     steelTagStats,
-    inventoryData,
+    inventoryRows,
+    showLowStockOnly,
+    setShowLowStockOnly,
     totalItems,
     lowStockCount,
     totalValue,
+    // Pagination
+    page,
+    pageSize,
+    pageTotal,
+    isLoading,
+    setPage,
+    setSearch,
+    // Tag actions
     getAvailableActions,
     startAllocate,
     cancelAllocate,
@@ -49,48 +55,10 @@ export default function InventoryPage() {
     handleScrapTag,
   } = useInventoryPageData();
 
-  const columns = useMemo(() => {
-    return [
-      { key: 'material_code', header: '자재코드', sortable: true },
-      {
-        key: 'name',
-        header: '자재명',
-        sortable: true,
-        cell: (item: InventoryRow) => (
-          <button
-            onClick={() => router.push(`/materials/items/${item.id}`)}
-            className={`hover:underline ${item.isLowStock ? 'text-red-600 font-medium' : 'text-primary font-medium'}`}
-          >
-            {item.name}
-          </button>
-        ),
-      },
-      {
-        key: 'category',
-        header: '분류',
-        cell: (item: InventoryRow) =>
-          MATERIAL_CATEGORY_MAP[item.category as keyof typeof MATERIAL_CATEGORY_MAP] || item.category,
-      },
-      { key: 'specification', header: '규격' },
-      { key: 'unit', header: '단위' },
-      {
-        key: 'quantity',
-        header: '현재 수량',
-        sortable: true,
-        cell: (item: InventoryRow) => (
-          <span className={item.isLowStock ? 'text-red-600 font-bold' : ''}>
-            {item.quantity.toLocaleString()}
-          </span>
-        ),
-      },
-      {
-        key: 'safety_stock',
-        header: '안전재고',
-        cell: (item: InventoryRow) => item.safety_stock.toLocaleString(),
-      },
-      { key: 'location_code', header: '위치' },
-    ];
-  }, [router]);
+  function handleSearchChange(value: string) {
+    setSearchInput(value);
+    setSearch(value);
+  }
 
   return (
     <div>
@@ -134,7 +102,12 @@ export default function InventoryPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="rounded-lg border border-border bg-card p-4 flex items-center gap-4">
+        <button
+          onClick={() => setShowLowStockOnly(false)}
+          className={`rounded-lg border bg-card p-4 flex items-center gap-4 text-left cursor-pointer transition-all ${
+            !showLowStockOnly ? 'border-blue-400 ring-2 ring-blue-200' : 'border-border hover:border-blue-300'
+          }`}
+        >
           <div className="p-2.5 rounded-lg bg-blue-50">
             <Package size={20} className="text-blue-600" />
           </div>
@@ -145,8 +118,13 @@ export default function InventoryPage() {
               <span className="text-sm font-normal text-muted-foreground ml-1">건</span>
             </p>
           </div>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4 flex items-center gap-4">
+        </button>
+        <button
+          onClick={() => setShowLowStockOnly(true)}
+          className={`rounded-lg border bg-card p-4 flex items-center gap-4 text-left cursor-pointer transition-all ${
+            showLowStockOnly ? 'border-red-400 ring-2 ring-red-200' : 'border-border hover:border-red-300'
+          }`}
+        >
           <div className="p-2.5 rounded-lg bg-red-50">
             <AlertTriangle size={20} className="text-red-600" />
           </div>
@@ -157,7 +135,7 @@ export default function InventoryPage() {
               <span className="text-sm font-normal text-muted-foreground ml-1">건</span>
             </p>
           </div>
-        </div>
+        </button>
         <div className="rounded-lg border border-border bg-card p-4 flex items-center gap-4">
           <div className="p-2.5 rounded-lg bg-green-50">
             <DollarSign size={20} className="text-green-600" />
@@ -200,12 +178,90 @@ export default function InventoryPage() {
       </div>
 
       {activeTab === 'all' ? (
-        <DataTable
-          data={inventoryData}
-          columns={columns}
-          searchPlaceholder="자재명, 자재코드 검색..."
-          searchKeys={['name', 'material_code']}
-        />
+        <>
+          <div className="mb-4">
+            <div className="relative w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="자재명, 자재코드 검색..."
+                value={searchInput}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="h-9 w-full pl-8 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재코드</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재명</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">분류</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">규격</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">단위</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">현재 수량</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">안전재고</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">위치</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 size={16} className="animate-spin" />
+                        데이터를 불러오는 중...
+                      </div>
+                    </td>
+                  </tr>
+                ) : inventoryRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                      {showLowStockOnly ? '재고 부족 품목이 없습니다.' : '재고 데이터가 없습니다.'}
+                    </td>
+                  </tr>
+                ) : (
+                  inventoryRows.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-border last:border-0 cursor-pointer hover:bg-muted/30"
+                      onClick={() => router.push(`/materials/items/${item.id}`)}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-xs">{item.material_code}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`font-medium ${item.isLowStock ? 'text-red-600' : 'text-primary'}`}>
+                          {item.name}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {MATERIAL_CATEGORY_MAP[item.category as keyof typeof MATERIAL_CATEGORY_MAP] || item.category}
+                      </td>
+                      <td className="px-4 py-3">{item.specification}</td>
+                      <td className="px-4 py-3">{item.unit}</td>
+                      <td className="px-4 py-3">
+                        <span className={item.isLowStock ? 'text-red-600 font-bold' : ''}>
+                          {item.quantity.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">{item.safety_stock.toLocaleString()}</td>
+                      <td className="px-4 py-3">{item.location_code}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <TablePagination
+            totalCount={pageTotal}
+            currentPage={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+          />
+        </>
       ) : (
         <SteelTagSection
           projects={projects}

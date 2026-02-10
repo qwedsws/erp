@@ -34,7 +34,8 @@
 - [ ] 수주 등록 (견적 기반 또는 직접 등록)
 - [ ] 수주 확인서 생성
 - [ ] 납기 일정 설정
-- [ ] 수주 → 프로젝트 자동 생성
+- [x] 수주 → 프로젝트 자동 생성 (`CreateOrderWithProjectUseCase`)
+- [x] 수주 생성 시 설계 공정 4단계 자동 시드 (DESIGN_3D/2D/REVIEW/BOM — idempotent)
 - [ ] 수주 현황 조회 (목록/캘린더 뷰)
 
 #### 3.2.3 고객 관리 (Customer)
@@ -55,7 +56,7 @@
 - [ ] 프로젝트 기본 정보 (금형 종류, 사양, 캐비티 수, 소재 등)
 - [x] 프로젝트 캘린더 (/projects/calendar — 월별 캘린더 뷰, 시작일/납기일/완료일 표시, 납기 지연 경고, 다가오는 납기 사이드바, 프로젝트 기간 바 차트)
 - [ ] 프로젝트 타임라인 (간트 차트 — 설계 공정 포함)
-- [ ] 프로젝트 상태 자동 전환 (공정 진행 상태 기반, §2.2 참조)
+- [x] 프로젝트 상태 자동 전환 (공정 진행 상태 기반, §2.2 참조 — `resolveProjectStatusFromSteps`, forward-only)
 - [ ] 프로젝트별 파일 첨부 (2D/3D 도면, 사양서)
 
 #### 3.3.2 설계 공정 관리
@@ -85,7 +86,7 @@
 - [ ] BOM 트리 뷰 / 플랫 뷰 전환
 - [ ] BOM 기반 자재 소요량 자동 산출
 - [ ] BOM 버전 관리
-- [ ] BOM 확정(DESIGN_BOM 공정 완료) 시 구매 요청 자동 생성 트리거
+- [x] BOM 확정(DESIGN_BOM 공정 완료) 시 구매 요청 자동 생성 트리거 (`CreatePurchaseRequestsFromBomUseCase` — BOM 항목별 PR 생성, 기존 PR 멱등 검사, project_id 전파)
 
 #### 3.3.4 설계 변경 관리 (ECO)
 - [ ] 설계 변경 요청 (ECR) 등록
@@ -162,12 +163,14 @@
 - [ ] 잔재(端材) 관리 (강재 자투리 재활용)
 
 #### 3.5.3 구매 관리
-- [x] 발주 목록 (/materials/purchase-orders — 상태별 필터 탭 + 검색 + 테이블)
-- [x] 발주 등록 (/materials/purchase-orders/new — 공급처/발주일/납기일 + 품목 라인 동적 추가/삭제 + 합계 자동계산)
+- [x] 발주 목록 (/materials/purchase-orders — 상태별 필터 탭 + 검색 + 테이블, 서버 페이지네이션)
+- [x] 발주 등록 (/materials/purchase-orders/new — 공급처/발주일/납기일 + 품목 라인 동적 추가/삭제 + 합계 자동계산, STEEL 치수 입력)
 - [ ] 발주 상세 (/materials/purchase-orders/[id] — 기본정보 + 품목테이블(입고수량/잔량) + 입고이력 + 상태변경 액션)
-- [ ] BOM 기반 구매 요청 자동 생성
-- [ ] 구매 요청 → 발주 워크플로우
+- [x] BOM 기반 구매 요청 자동 생성 (DESIGN_BOM 완료 → `CreatePurchaseRequestsFromBomUseCase`)
+- [x] 구매 요청 → 발주 워크플로우 (`ConvertRequestsToPO` — 프로젝트별 PO 자동 분할, `purchaseOrders[]` 다건 반환)
 - [ ] 구매 단가 이력 관리
+- [x] 구매요청 목록 (/materials/purchase-requests — 서버 페이지네이션 + 검색 + 상태 필터 + STEEL 치수 컬럼)
+- [x] 구매요청 등록 (/materials/purchase-requests/new — 자재/수량/사유/필요일 + STEEL 치수 입력)
 
 #### 3.5.4 거래처 관리 (신규)
 - [x] 거래처 목록 (/materials/suppliers — KPI 카드 3종 + DataTable, 업체명/사업자번호 검색)
@@ -192,6 +195,12 @@
 - [x] 입고 시 재고 자동 증가 + 이동평균 단가 재계산
 - [x] 입고 시 발주 상태 자동 변경 (ORDERED → PARTIAL_RECEIVED → RECEIVED)
 - [x] 입고 시 공급처별 단가 이력 자동 생성 (MaterialPrice — 단가 변동 시 자동 기록, 입고 자동 등록 메모)
+- [x] 입고 시 PO의 project_id를 StockMovement(IN) 및 SteelTag에 전파
+
+#### 3.5.6 프로젝트별 자재 추적 (신규, 구현 완료)
+- [x] 프로젝트 상세에 자재/구매 현황 KPI 6종 (구매요청액/발주액/입고액/출고액/미입고/미출고 — `useProjectMaterialSummary`)
+- [x] 프로젝트 E2E 타임라인 (수주/설계/구매/생산 4종 이벤트 시간순 — `useProjectTimeline`)
+- [x] 데이터 정합성 점검 (/admin/data-integrity — project_id 누락률, 상태 불일치, 문서 연결 누락 3종 지표)
 
 ---
 
@@ -266,7 +275,7 @@
   - DI 기준 Supabase Repository는 현재 자재/구매 중심이며(`infrastructure/di/container.ts`), 회계 모듈은 신규 영속 계층 추가가 필요함.
 
 #### 3.9.2 핵심 기능 요구사항
-- [ ] **자동 분개 엔진**: 도메인 이벤트 발생 시 차변/대변 전표 자동 생성
+- [x] **자동 분개 엔진**: 도메인 이벤트 발생 시 차변/대변 전표 자동 생성 (ORDER_CONFIRMED, PAYMENT_CONFIRMED, PO_ORDERED, STOCK_OUT — `AutoPostingService` + `PostAccountingEventUseCase`)
 - [ ] **AR/AP 보조원장**: 수주별 매출채권, 발주별 매입채무 잔액 추적
 - [ ] **재고자산/재공품/제품 전환**: 출고→재공품, 공정완료→제품, 납품→매출원가 자동 반영
 - [ ] **분개 추적성**: 전표 ↔ 원천 문서(Order/PO/StockMovement/WorkOrder) 양방향 추적
@@ -294,15 +303,16 @@
 
 #### 3.9.4 회계 화면/업무 시나리오
 - [ ] `/accounting/item-policies`: 회계처리항목(원자재/부재료/소모품 등)별 기본 계정 정책 관리
-- [ ] `/accounting/journals`: 자동 생성 전표 조회, 원천 문서 링크
+- [x] `/accounting/dashboard`: 회계 대시보드 (매출/매입/미수/미지급 KPI)
+- [x] `/accounting/journals`: 자동 생성 전표 조회, 원천 문서 링크
 - [ ] `/accounting/general-ledger`: 계정별 원장(기간, 거래처, 프로젝트 필터)
-- [ ] `/accounting/receivables`: 수주별 미수금 에이징(30/60/90일)
-- [ ] `/accounting/payables`: 발주별 미지급금 에이징
+- [x] `/accounting/receivables`: 수주별 미수금 에이징(30/60/90일)
+- [x] `/accounting/payables`: 발주별 미지급금 에이징
 - [ ] `/accounting/closing`: 월 마감, 잠금/재오픈, 마감 로그
 
 #### 3.9.5 단계별 도입 계획
-- [ ] Step 1 (기반): 계정과목/전표/분개 스키마, 자동분개 엔진 뼈대
-- [ ] Step 2 (필수 자동연동): 판매·입금·발주·입고·출고 이벤트 연동
+- [x] Step 1 (기반): 계정과목/전표/분개 스키마, 자동분개 엔진 뼈대 — `AutoPostingService`, GL계정 8개, Mock 분개 19건
+- [x] Step 2 (필수 자동연동): 판매(ORDER_CONFIRMED)·입금(PAYMENT_CONFIRMED)·발주(PO_ORDERED)·출고(STOCK_OUT) 이벤트 연동
 - [ ] Step 3 (제조 연동): 공정완료→제품자산, 납품→매출원가
 - [ ] Step 4 (통제): 월마감 잠금, 역분개, 감사로그/권한(회계 승인)
 

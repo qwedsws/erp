@@ -8,6 +8,50 @@ export interface QueryRangeOptions {
   offset?: number;
 }
 
+// ---- Server-side pagination/search/filter contracts ----
+
+export interface PageQuery {
+  page: number;
+  pageSize: number;
+  search?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+}
+
+export interface PageResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// Resource-specific page queries
+
+export interface MaterialPageQuery extends PageQuery {
+  category?: string;
+  lowStockOnly?: boolean;
+}
+
+export interface InventoryStats {
+  totalItems: number;
+  lowStockCount: number;
+  totalValue: number;
+}
+
+export interface PurchaseOrderPageQuery extends PageQuery {
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface PurchaseRequestPageQuery extends PageQuery {
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export type SupplierPageQuery = PageQuery;
+
 export function success<T>(value: T): Result<T, never> {
   return { ok: true, value };
 }
