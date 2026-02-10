@@ -30,11 +30,11 @@ export class ConvertRequestsToPOUseCase {
     }
 
     const requests = (await this.prRepo.findByIds(targetRequestIds)).filter(
-      (pr) => pr.status === 'APPROVED',
+      (pr) => pr.status === 'IN_PROGRESS',
     );
 
     if (requests.length === 0) {
-      return failure(new ValidationError('No approved purchase requests found'));
+      return failure(new ValidationError('No in-progress purchase requests found'));
     }
 
     const uniqueMaterialIds = [...new Set(requests.map(pr => pr.material_id))];
@@ -42,7 +42,7 @@ export class ConvertRequestsToPOUseCase {
       (await this.materialRepo.findByIds(uniqueMaterialIds)).map((material) => [material.id, material]),
     );
 
-    // Group approved PRs by project_id (null key for common-stock PRs without a project)
+    // Group in-progress PRs by project_id (null key for common-stock PRs without a project)
     const PROJECT_NULL_KEY = '__NO_PROJECT__';
     const groupedByProject = new Map<string, typeof requests>();
     for (const pr of requests) {

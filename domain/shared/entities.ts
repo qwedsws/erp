@@ -309,7 +309,7 @@ export interface MaterialPrice {
   created_at: string;
 }
 
-export type PurchaseRequestStatus = 'DRAFT' | 'IN_PROGRESS' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+export type PurchaseRequestStatus = 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED';
 
 export interface PurchaseRequest {
   id: string;

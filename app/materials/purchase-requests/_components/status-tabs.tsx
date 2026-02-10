@@ -7,16 +7,16 @@ import { STATUS_TABS, type StatusTab } from '@/hooks/procurement/usePurchaseRequ
 interface StatusTabsProps {
   statusFilter: StatusTab;
   onStatusChange: (tab: StatusTab) => void;
-  hasCheckedApproved: boolean;
-  checkedApprovedCount: number;
+  hasCheckedInProgress: boolean;
+  checkedInProgressCount: number;
   onToggleConvertPanel: () => void;
 }
 
 export function StatusTabs({
   statusFilter,
   onStatusChange,
-  hasCheckedApproved,
-  checkedApprovedCount,
+  hasCheckedInProgress,
+  checkedInProgressCount,
   onToggleConvertPanel,
 }: StatusTabsProps) {
   return (
@@ -38,13 +38,13 @@ export function StatusTabs({
         ))}
       </div>
 
-      {hasCheckedApproved && (
+      {hasCheckedInProgress && (
         <button
           onClick={onToggleConvertPanel}
           className="ml-auto inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
         >
           <ArrowRightLeft size={14} />
-          일괄 발주 전환 ({checkedApprovedCount}건)
+          발주 전환 ({checkedInProgressCount}건)
         </button>
       )}
     </div>

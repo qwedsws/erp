@@ -4,30 +4,18 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/common/page-header';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { useReceivingPageData } from '@/hooks/materials/useReceivingPageData';
-import { Plus, Package, PackagePlus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { PendingPOPanel } from './_components/pending-po-panel';
-import { ReceivingHistoryPanel } from './_components/receiving-history-panel';
-import { ReceivingKpiCards } from './_components/receiving-kpi-cards';
 
 export default function ReceivingPage() {
   const {
-    activeTab,
-    setActiveTab,
     search,
     setSearch,
     materialById,
-    purchaseOrderById,
     supplierById,
     baseTimeMs,
     today,
-    incomingMovements,
-    filteredMovements,
     filteredPendingPOs,
-    monthlyCount,
-    monthlyAmount,
-    pendingPOCount,
-    pendingAmount,
-    overduePOCount,
     confirmPOAction,
     targetPO,
     openCancelDialog,
@@ -40,7 +28,7 @@ export default function ReceivingPage() {
     <div>
       <PageHeader
         title="입고 관리"
-        description="발주별 미입고 현황과 입고 이력을 통합 관리합니다"
+        description="발주별 미입고 현황을 관리합니다"
         actions={
           <Link
             href="/materials/receiving/new"
@@ -52,84 +40,28 @@ export default function ReceivingPage() {
         }
       />
 
-      <ReceivingKpiCards
-        monthlyCount={monthlyCount}
-        monthlyAmount={monthlyAmount}
-        pendingPOCount={pendingPOCount}
-        overduePOCount={overduePOCount}
-        pendingAmount={pendingAmount}
-      />
-
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-        <div className="flex gap-1 p-1 bg-muted rounded-lg">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === 'pending'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <Package size={14} />
-              미입고 현황
-              {pendingPOCount > 0 && (
-                <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-bold rounded-full bg-orange-100 text-orange-700">
-                  {pendingPOCount}
-                </span>
-              )}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === 'history'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <PackagePlus size={14} />
-              입고 이력
-              <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-bold rounded-full bg-blue-100 text-blue-700">
-                {incomingMovements.length}
-              </span>
-            </span>
-          </button>
+      <div className="flex items-center justify-end mb-4">
+        <div className="relative">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="발주번호, 거래처, 자재명 검색..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="h-8 w-64 rounded-md border border-input bg-background pl-8 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          />
         </div>
-
-        <input
-          type="text"
-          placeholder={
-            activeTab === 'pending'
-              ? '발주번호, 거래처, 자재명 검색...'
-              : '자재명, 자재코드, 발주번호 검색...'
-          }
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="w-full sm:max-w-sm h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
       </div>
 
-      {activeTab === 'pending' && (
-        <PendingPOPanel
-          filteredPendingPOs={filteredPendingPOs}
-          supplierById={supplierById}
-          materialById={materialById}
-          today={today}
-          baseTimeMs={baseTimeMs}
-          onCancelPO={openCancelDialog}
-          onDeletePO={openDeleteDialog}
-        />
-      )}
-
-      {activeTab === 'history' && (
-        <ReceivingHistoryPanel
-          filteredMovements={filteredMovements}
-          materialById={materialById}
-          purchaseOrderById={purchaseOrderById}
-        />
-      )}
+      <PendingPOPanel
+        filteredPendingPOs={filteredPendingPOs}
+        supplierById={supplierById}
+        materialById={materialById}
+        today={today}
+        baseTimeMs={baseTimeMs}
+        onCancelPO={openCancelDialog}
+        onDeletePO={openDeleteDialog}
+      />
 
       <ConfirmDialog
         open={confirmPOAction !== null}

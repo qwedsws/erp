@@ -8,8 +8,7 @@ import {
   getPurchaseRequestRepository,
 } from '@/infrastructure/di/container';
 import { ConvertRequestsToPOUseCase } from '@/domain/procurement/use-cases/convert-requests-to-po';
-import { resolveApproverId } from '@/domain/procurement/services';
-import type { PurchaseOrder, PurchaseRequest } from '@/domain/procurement/entities';
+import type { PurchaseOrder } from '@/domain/procurement/entities';
 import { useAsyncAction } from '@/hooks/shared/useAsyncAction';
 
 let prsLoaded = false;
@@ -18,7 +17,6 @@ let prsLoadPromise: Promise<void> | null = null;
 export function usePurchaseRequests() {
   const purchaseRequests = useERPStore((s) => s.purchaseRequests);
   const setPurchaseRequests = useERPStore((s) => s.setPurchaseRequests);
-  const profiles = useERPStore((s) => s.profiles);
   const addToCache = useERPStore((s) => s.addPurchaseRequestToCache);
   const updateInCache = useERPStore((s) => s.updatePurchaseRequestInCache);
   const removeFromCache = useERPStore((s) => s.removePurchaseRequestFromCache);
@@ -71,38 +69,6 @@ export function usePurchaseRequests() {
       return updated;
     });
 
-  const approvePurchaseRequest = (id: string, approvedBy?: string) =>
-    run(async () => {
-      const approverId = resolveApproverId(profiles, approvedBy);
-      const now = new Date().toISOString();
-      const updated = await purchaseRequestRepo.update(id, {
-        status: 'APPROVED', approved_by: approverId, approved_at: now,
-      });
-      updateInCache(id, updated);
-    });
-
-  const rejectPurchaseRequest = (id: string, reason: string, approvedBy?: string) =>
-    run(async () => {
-      const approverId = resolveApproverId(profiles, approvedBy);
-      const now = new Date().toISOString();
-      const updated = await purchaseRequestRepo.update(id, {
-        status: 'REJECTED', approved_by: approverId, approved_at: now, reject_reason: reason,
-      });
-      updateInCache(id, updated);
-    });
-
-  const revokePurchaseRequest = (id: string) =>
-    run(async () => {
-      // null clears Supabase columns; cast needed because entity uses optional (undefined)
-      const updated = await purchaseRequestRepo.update(id, {
-        status: 'IN_PROGRESS',
-        approved_by: null,
-        approved_at: null,
-        reject_reason: null,
-      } as unknown as Partial<PurchaseRequest>);
-      updateInCache(id, updated);
-    });
-
   const deletePurchaseRequest = (id: string) =>
     run(async () => {
       await purchaseRequestRepo.delete(id);
@@ -128,7 +94,7 @@ export function usePurchaseRequests() {
   return {
     purchaseRequests,
     addPurchaseRequest, addPurchaseRequests, updatePurchaseRequest,
-    approvePurchaseRequest, rejectPurchaseRequest, revokePurchaseRequest, deletePurchaseRequest,
+    deletePurchaseRequest,
     convertRequestsToPO,
     isLoading, error,
   };

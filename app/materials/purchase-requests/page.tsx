@@ -2,10 +2,9 @@
 
 import React, { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Loader2, Check, X, Undo2, Trash2 } from 'lucide-react';
+import { Plus, Search, Loader2, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
-import { PromptDialog } from '@/components/common/prompt-dialog';
 import { TablePagination } from '@/components/common/table-pagination';
 import { usePurchaseRequestsPageData } from '@/hooks/procurement/usePurchaseRequestsPageData';
 import { StatusTabs } from './_components/status-tabs';
@@ -27,30 +26,12 @@ export default function PurchaseRequestsPage() {
     statusFilter,
     setStatusFilter,
     checkedIds,
-    hasCheckedApproved,
-    checkedApprovedCount,
+    hasCheckedInProgress,
+    checkedInProgressCount,
     toggleCheck,
     toggleAll,
     // Toolbar counts
-    selectedPendingCount,
-    selectedCanRevokeCount,
     selectedCanDeleteCount,
-    // Batch actions
-    batchApprove,
-    // Reject
-    isRejectDialogOpen,
-    rejectTargetIds,
-    rejectReason,
-    openRejectDialog,
-    closeRejectDialog,
-    setRejectReason,
-    confirmReject,
-    // Revoke
-    isRevokeDialogOpen,
-    revokeTargetIds,
-    openRevokeDialog,
-    closeRevokeDialog,
-    confirmRevoke,
     // Delete
     isDeleteDialogOpen,
     deleteTargetIds,
@@ -111,8 +92,8 @@ export default function PurchaseRequestsPage() {
           <StatusTabs
             statusFilter={statusFilter}
             onStatusChange={setStatusFilter}
-            hasCheckedApproved={hasCheckedApproved}
-            checkedApprovedCount={checkedApprovedCount}
+            hasCheckedInProgress={hasCheckedInProgress}
+            checkedInProgressCount={checkedInProgressCount}
             onToggleConvertPanel={toggleConvertPanel}
           />
         </div>
@@ -143,30 +124,6 @@ export default function PurchaseRequestsPage() {
       {checkedIds.size > 0 && (
         <div className="flex items-center gap-2 mb-3 p-3 bg-muted/30 rounded-lg border border-border">
           <span className="text-sm font-medium mr-2">{checkedIds.size}건 선택</span>
-          <button
-            onClick={() => void batchApprove()}
-            disabled={selectedPendingCount === 0}
-            className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Check size={14} />
-            승인 ({selectedPendingCount})
-          </button>
-          <button
-            onClick={openRejectDialog}
-            disabled={selectedPendingCount === 0}
-            className="inline-flex items-center gap-1 px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <X size={14} />
-            반려 ({selectedPendingCount})
-          </button>
-          <button
-            onClick={openRevokeDialog}
-            disabled={selectedCanRevokeCount === 0}
-            className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-100 text-orange-700 rounded text-xs font-medium hover:bg-orange-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Undo2 size={14} />
-            철회 ({selectedCanRevokeCount})
-          </button>
           <button
             onClick={openDeleteDialog}
             disabled={selectedCanDeleteCount === 0}
@@ -199,32 +156,6 @@ export default function PurchaseRequestsPage() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
-      />
-
-      {/* Reject dialog */}
-      <PromptDialog
-        open={isRejectDialogOpen}
-        onOpenChange={closeRejectDialog}
-        title="구매 요청 반려"
-        description={`${rejectTargetIds.length}건의 구매 요청을 반려합니다. 반려 사유를 입력하세요.`}
-        inputLabel="반려 사유"
-        placeholder="예: 사양 불일치"
-        value={rejectReason}
-        onValueChange={setRejectReason}
-        confirmLabel="반려"
-        cancelLabel="취소"
-        confirmDisabled={!rejectReason.trim()}
-        onConfirm={() => void confirmReject()}
-      />
-
-      <ConfirmDialog
-        open={isRevokeDialogOpen}
-        onOpenChange={closeRevokeDialog}
-        title="승인/반려 철회"
-        description={`${revokeTargetIds.length}건의 승인 또는 반려를 철회하고 승인대기 상태로 되돌립니다.`}
-        confirmLabel="철회"
-        cancelLabel="취소"
-        onConfirm={() => void confirmRevoke()}
       />
 
       <ConfirmDialog

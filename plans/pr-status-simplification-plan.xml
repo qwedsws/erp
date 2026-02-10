@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan version="1.2">
+  <meta>
+    <title>구매요청 상태 단순화 및 발주등록 연계 기준 전환 계획</title>
+    <created>2026-02-10T12:11:26Z</created>
+    <updated>2026-02-10T12:11:26Z</updated>
+    <owner>planner</owner>
+    <context>
+      <repoRoot>.</repoRoot>
+      <planPath>plans/pr-status-simplification-plan.xml</planPath>
+      <request><![CDATA[
+구매요청 페이지에서 승인/반려를 제거하고 진행중/완료만 남긴다.
+발주 등록의 구매요청 불러오기와 일괄 발주 전환 기준을 승인(APPROVED)에서 진행중(IN_PROGRESS)으로 변경한다.
+]]></request>
+    </context>
+  </meta>
+
+  <scope>
+    <writeAllow>plans/**</writeAllow>
+    <writeAllow>**/*-overview.md</writeAllow>
+    <writeDeny>everything-else</writeDeny>
+    <notes><![CDATA[
+Planner 단계에서는 계획 문서만 수정한다.
+소스코드/마이그레이션/테스트 실행은 executor 단계에서 수행한다.
+]]></notes>
+  </scope>
+
+  <statusModel>
+    <allowed>todo,in_progress,partial,done,blocked,failed,needs_replan</allowed>
+    <transition from="todo" to="in_progress"/>
+    <transition from="todo" to="needs_replan"/>
+    <transition from="in_progress" to="partial"/>
+    <transition from="in_progress" to="done"/>
+    <transition from="in_progress" to="blocked"/>
+    <transition from="in_progress" to="failed"/>
+    <transition from="partial" to="in_progress"/>
+    <transition from="partial" to="done"/>
+    <transition from="partial" to="blocked"/>
+    <transition from="partial" to="failed"/>
+    <transition from="blocked" to="in_progress"/>
+    <transition from="blocked" to="needs_replan"/>
+    <transition from="failed" to="in_progress"/>
+    <transition from="failed" to="needs_replan"/>
+    <transition from="needs_replan" to="todo"/>
+    <transition from="needs_replan" to="in_progress"/>
+  </statusModel>
+
+  <inventory>
+    <folder path="app/" overview="app/app-overview.md" status="existing"/>
+    <folder path="hooks/" overview="hooks/hooks-overview.md" status="existing"/>
+    <folder path="domain/" overview="domain/domain-overview.md" status="existing"/>
+    <folder path="types/" overview="types/types-overview.md" status="existing"/>
+    <folder path="infrastructure/" overview="infrastructure/infrastructure-overview.md" status="existing"/>
+    <folder path="lib/" overview="lib/lib-overview.md" status="existing"/>
+    <folder path="plans/" overview="plans/plans-overview.md" status="updated"/>
+  </inventory>
+
+  <phases>
+    <phase id="P1" name="현행 구조 분석" status="done">
+      <tasks>
+        <task id="T1" status="done" owner="planner" dependsOn="" updatedAt="2026-02-10T12:11:26Z">
+          <summary><![CDATA[승인/반려 의존 지점을 목록/상세/Hook/UseCase에서 식별했다]]></summary>
+          <details><![CDATA[
+확인 파일:
+- app/materials/purchase-requests/page.tsx (승인/반려/철회 버튼 + 반려/철회 다이얼로그)
+- app/materials/purchase-requests/[id]/page.tsx (상세 승인/반려/철회 액션 + 승인/반려 정보 카드)
+- hooks/procurement/usePurchaseRequestsPageData.ts (STATUS_TABS, approve/reject/revoke 핸들러, approved 기반 전환)
+- hooks/procurement/usePurchaseRequests.ts (approve/reject/revoke API 노출)
+- hooks/procurement/usePurchaseOrderForm.ts (approved PR만 불러오기)
+- domain/procurement/use-cases/convert-requests-to-po.ts (APPROVED 필터)
+]]></details>
+          <outputs>
+            <file path="plans/pr-status-simplification-plan.xml" kind="plan"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[요구사항과 충돌하는 코드 경로가 파일 단위로 식별되어 후속 작업 입력으로 고정된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[상세 페이지/목록 페이지의 정책이 다르면 상태 모델이 다시 분기될 수 있다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T2" status="done" owner="planner" dependsOn="T1" updatedAt="2026-02-10T12:11:26Z">
+          <summary><![CDATA[목표 상태 모델과 호환 전략을 정의했다]]></summary>
+          <details><![CDATA[
+목표 동작:
+1) 구매요청 UI 상태는 진행중/완료 중심으로 단순화
+2) 발주 전환 대상은 진행중 PR만 허용
+3) 전환 성공 시 PR은 완료로 전이
+
+호환 전략(권장):
+- 신규 로직은 IN_PROGRESS/COMPLETED만 생성
+- 기존 DRAFT/APPROVED/REJECTED 데이터는 배치 정규화(기본: IN_PROGRESS) 또는 조회 시 임시 매핑으로 처리
+]]></details>
+          <outputs>
+            <file path="plans/pr-status-simplification-plan.xml" kind="plan-update"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[실행 단계에서 사용할 상태 전이 규칙과 데이터 호환 원칙이 명시된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="high"><![CDATA[기존 REJECTED를 IN_PROGRESS로 정규화할 경우 의도치 않게 다시 처리 대상이 될 수 있다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P2" name="구매요청 UI/Hook 단순화" status="todo">
+      <tasks>
+        <task id="T3" status="todo" owner="executor" dependsOn="T2" updatedAt="2026-02-10T12:11:26Z">
+          <summary><![CDATA[구매요청 목록에서 승인/반려/철회 UX를 제거하고 상태 탭을 축소한다]]></summary>
+          <details><![CDATA[
+수정 대상:
+- app/materials/purchase-requests/page.tsx
+- app/materials/purchase-requests/_components/status-tabs.tsx
+- hooks/procurement/usePurchaseRequestsPageData.ts
+
+핵심 변경:
+- STATUS_TABS에서 APPROVED/REJECTED 제거 (필요시 DRAFT도 제거하고 ALL/IN_PROGRESS/COMPLETED로 고정)
+- batchApprove/openRejectDialog/confirmReject/openRevokeDialog/confirmRevoke 경로 제거
+- convert 버튼 활성화 기준을 approvedIds에서 inProgressIds로 교체
+]]></details>
+          <outputs>
+            <file path="app/materials/purchase-requests/page.tsx" kind="code"/>
+            <file path="app/materials/purchase-requests/_components/status-tabs.tsx" kind="code"/>
+            <file path="hooks/procurement/usePurchaseRequestsPageData.ts" kind="code"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[목록 화면에 승인/반려/철회 버튼과 관련 다이얼로그가 존재하지 않는다.]]></criterion>
+            <criterion><![CDATA[상태 탭과 선택 전환 기준이 진행중/완료 정책과 일치한다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[기존 selectedPendingCount/selectedCanRevokeCount 의존 UI가 제거되며 타입 오류가 발생할 수 있다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T4" status="todo" owner="executor" dependsOn="T3" updatedAt="2026-02-10T12:11:26Z">
+          <summary><![CDATA[구매요청 상세 화면의 승인/반려 중심 액션을 삭제 중심 정책으로 정렬한다]]></summary>
+          <details><![CDATA[
+수정 대상:
+- app/materials/purchase-requests/[id]/page.tsx
+
+핵심 변경:
+- approve/reject/revoke 호출과 관련 PromptDialog/ConfirmDialog 분기 제거
+- 상태별 액션은 최소화(예: 진행중 삭제, 완료는 읽기 전용)
+- 승인/반려 정보 카드 표출 조건 제거 또는 전환 이력 카드로 단순화
+]]></details>
+          <outputs>
+            <file path="app/materials/purchase-requests/[id]/page.tsx" kind="code"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[상세 화면에서 승인/반려/철회 동작이 사라지고 상태 정책이 목록과 동일하다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="low"><![CDATA[기존 번역 문자열/아이콘 import 누락으로 잔여 dead code가 남을 수 있다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T5" status="todo" owner="executor" dependsOn="T3" updatedAt="2026-02-10T12:11:26Z">
+          <summary><![CDATA[구매요청 Hook API에서 승인/반려/철회 함수를 제거한다]]></summary>
+          <details><![CDATA[
+수정 대상:
+- hooks/procurement/usePurchaseRequests.ts
+- domain/procurement/services.ts (resolveApproverId 사용처 정리)
+
+핵심 변경:
+- approvePurchaseRequest/rejectPurchaseRequest/revokePurchaseRequest export 제거
+- 호출부 컴파일 오류를 기반으로 잔여 참조 정리
+]]></details>
+          <outputs>
+            <file path="hooks/procurement/usePurchaseRequests.ts" kind="code"/>
+            <file path="domain/procurement/services.ts" kind="code"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[구매요청 Hook의 public API가 새 정책(등록/수정/삭제/전환)에만 집중된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[다른 화면에서 approve/reject 함수를 직접 사용하면 연쇄 수정이 필요하다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P3" name="발주등록 연계 기준 전환" status="todo">
+      <tasks>
+        <task id="T6" status="todo" owner="executor" dependsOn="T2" updatedAt="2026-02-10T12:11:26Z">
+          <summary><![CDATA[PO 등록의 PR 불러오기를 진행중 기준으로 전환한다]]></summary>
+          <details><![CDATA[
+수정 대상:
+- hooks/procurement/usePurchaseOrderForm.ts
+- app/materials/purchase-orders/new/page.tsx
+
+핵심 변경:
+- approvedPRs/approved 필터를 inProgress PR 필터로 교체
+- 안내 문구를 "승인된 구매요청"에서 "진행중 구매요청"으로 교체
+- import 후 PR 완료 처리 로직은 유지
+]]></details>
+          <outputs>
+            <file path="hooks/procurement/usePurchaseOrderForm.ts" kind="code"/>
+            <file path="app/materials/purchase-orders/new/page.tsx" kind="code"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[발주등록 PR 불러오기 목록에 진행중 상태 PR만 표시된다.]]></criterion>
+            <criterion><![CDATA[빈 상태 메시지/배지 문구가 새 정책과 일치한다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[기존 approved 상태 데이터는 불러오기 대상에서 제외되어 누락처럼 보일 수 있다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T7" status="todo" owner="executor" dependsOn="T6" updatedAt="2026-02-10T12:11:26Z">
+          <summary><![CDATA[PR→PO 변환 UseCase 기준을 진행중으로 변경한다]]></summary>
+          <details><![CDATA[
+수정 대상:
+- domain/procurement/use-cases/convert-requests-to-po.ts
+- hooks/procurement/usePurchaseRequestsPageData.ts (handleConvert 안내 문구 포함)
+
+핵심 변경:
+- execute() 대상 필터를 status==='IN_PROGRESS'로 교체
+- 실패 메시지를 "No in-progress purchase requests found"로 정렬
+- 성공 시 PR status='COMPLETED', po_id 연결은 유지
+]]></details>
+          <outputs>
+            <file path="domain/procurement/use-cases/convert-requests-to-po.ts" kind="code"/>
+            <file path="hooks/procurement/usePurchaseRequestsPageData.ts" kind="code"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[진행중 PR만 전환 대상이 되며 전환 완료 후 PR이 완료 상태로 반영된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="high"><![CDATA[PO 생성 후 PR 업데이트 실패 보상 로직이 깨지면 orphan PO가 남을 수 있다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P4" name="상태 계약 및 데이터 호환 정리" status="todo">
+      <tasks>
+        <task id="T8" status="todo" owner="executor" dependsOn="T3,T4,T6,T7" updatedAt="2026-02-10T12:11:26Z">
+          <summary><![CDATA[상태 타입/표시 맵을 진행중·완료 중심으로 정렬한다]]></summary>
+          <details><![CDATA[
+수정 대상:
+- domain/shared/entities.ts
+- types/display.ts
+- domain/procurement/use-cases/create-purchase-requests-from-bom.ts
+- hooks/procurement/usePurchaseRequestForm.ts
+
+권장 방향:
+- PurchaseRequestStatus를 IN_PROGRESS/COMPLETED 중심으로 재정의 (필요 시 마이그레이션 완료 전까지 임시 호환 타입 유지)
+- PR_STATUS_MAP에서 APPROVED/REJECTED 라벨 제거
+- BOM 자동 생성 상태를 DRAFT가 아닌 IN_PROGRESS로 전환
+]]></details>
+          <outputs>
+            <file path="domain/shared/entities.ts" kind="code"/>
+            <file path="types/display.ts" kind="code"/>
+            <file path="domain/procurement/use-cases/create-purchase-requests-from-bom.ts" kind="code"/>
+            <file path="hooks/procurement/usePurchaseRequestForm.ts" kind="code"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[신규 생성 PR 상태가 진행중으로 일관되고 화면 라벨도 진행중/완료 중심으로 표시된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="high"><![CDATA[타입 축소 시 레거시 상태를 참조하는 코드가 광범위하게 깨질 수 있다.]]></risk>
+          </risks>
+        </task>
+
+        <task id="T9" status="todo" owner="executor" dependsOn="T8" updatedAt="2026-02-10T12:11:26Z">
+          <summary><![CDATA[레거시 상태 데이터 정규화(백필) 전략을 적용한다]]></summary>
+          <details><![CDATA[
+대상:
+- Supabase purchase_requests.status 레코드
+- lib/mock-data.ts (개발 데이터)
+
+권장 절차:
+1) 백업 후 상태 분포 점검
+2) DRAFT/APPROVED/REJECTED -> IN_PROGRESS 또는 정책별 분기 매핑
+3) 정규화 후 목록/상세/불러오기 회귀 확인
+]]></details>
+          <outputs>
+            <file path="lib/mock-data.ts" kind="code"/>
+            <file path="plans/pr-status-simplification-plan.xml" kind="migration-runbook"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[운영/개발 데이터에서 레거시 상태로 인한 UI 누락이 발생하지 않는다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="high"><![CDATA[REJECTED 이력의 보존 정책을 확정하지 않으면 데이터 의미가 훼손될 수 있다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P5" name="검증 및 리뷰" status="todo">
+      <tasks>
+        <task id="T10" status="todo" owner="executor" dependsOn="T5,T7,T9" updatedAt="2026-02-10T12:11:26Z">
+          <summary><![CDATA[정적 검증과 시나리오 테스트를 수행한다]]></summary>
+          <details><![CDATA[
+정적 검증:
+- npm run lint
+- npm run build
+
+수동 시나리오:
+1) 구매요청 등록 -> 상태 진행중
+2) 구매요청 목록/상세에서 승인/반려 UI 부재 확인
+3) 발주등록 PR 불러오기 -> 진행중 PR만 노출
+4) PR 기반 PO 생성 -> PR 상태 완료 + po_id 연결
+5) 완료 PR은 삭제/재전환이 제한되는지 확인
+]]></details>
+          <outputs>
+            <file path="plans/pr-status-simplification-plan.xml" kind="verification-log"/>
+          </outputs>
+          <acceptance>
+            <criterion><![CDATA[lint/build 성공 및 핵심 시나리오 5종 통과 결과가 기록된다.]]></criterion>
+          </acceptance>
+          <risks>
+            <risk severity="medium"><![CDATA[Supabase 환경과 InMemory 환경에서 상태 데이터가 달라 결과가 달라질 수 있다.]]></risk>
+          </risks>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+
+  <externalChanges>
+    <requestSummary><![CDATA[
+사용자는 구매요청 상태 체계를 승인/반려 기반에서 진행중/완료 기반으로 단순화하려고 한다.
+또한 PO 등록의 PR 연계 소스를 승인 건이 아닌 진행중 건으로 바꾸길 원한다.
+]]></requestSummary>
+    <policyReason><![CDATA[
+Planner write-scope 정책상 소스코드는 수정하지 않는다.
+실제 구현은 executor가 아래 patchInstructions 순서대로 수행한다.
+]]></policyReason>
+    <patchInstructions><![CDATA[
+권장 적용 순서:
+1) hooks/procurement/usePurchaseRequestsPageData.ts
+2) app/materials/purchase-requests/page.tsx
+3) app/materials/purchase-requests/_components/status-tabs.tsx
+4) app/materials/purchase-requests/[id]/page.tsx
+5) hooks/procurement/usePurchaseRequests.ts
+6) hooks/procurement/usePurchaseOrderForm.ts
+7) app/materials/purchase-orders/new/page.tsx
+8) domain/procurement/use-cases/convert-requests-to-po.ts
+9) domain/shared/entities.ts, types/display.ts, domain/procurement/use-cases/create-purchase-requests-from-bom.ts
+10) 데이터 정규화(필요 시 Supabase SQL + mock-data)
+]]></patchInstructions>
+    <userOptions><![CDATA[
+상태 데이터 정규화 정책 선택:
+A) REJECTED 포함 모든 미완료 상태를 IN_PROGRESS로 일괄 정규화 (구현 단순)
+B) REJECTED는 별도 보존하고 UI에서 숨김 처리, 나머지만 IN_PROGRESS로 정규화 (이력 보존)
+기본 실행안: B (이력 의미 보존).
+]]></userOptions>
+  </externalChanges>
+
+  <handoff>
+    <forExecutor><![CDATA[
+요청이 UI/Hook/UseCase/타입 계층에 걸쳐 있으므로 아래 순서를 지켜 구현한다.
+1) 목록/상세 승인/반려 제거(T3,T4)
+2) PO 등록/일괄 전환 기준 IN_PROGRESS 전환(T6,T7)
+3) 상태 타입/표시맵과 BOM 생성 상태 정렬(T8)
+4) 데이터 정규화 정책 반영(T9)
+5) lint/build + 수동 시나리오 검증(T10)
+]]></forExecutor>
+    <forReviewer><![CDATA[
+리뷰 체크리스트:
+1) purchase-requests 페이지에 승인/반려/철회 UI가 남아있지 않은가
+2) PO 신규 등록 PR 불러오기 필터가 IN_PROGRESS인가
+3) convert-requests-to-po가 IN_PROGRESS만 처리하는가
+4) PR 상태 라벨/탭이 진행중·완료 정책과 일치하는가
+5) 레거시 상태 데이터가 화면 누락/전환 누락을 만들지 않는가
+6) lint/build 및 수동 시나리오 결과가 증빙되었는가
+]]></forReviewer>
+  </handoff>
+
+  <changeLog>
+    <change when="2026-02-10T12:11:26Z" who="planner" type="init"><![CDATA[
+신규 계획 생성. 구매요청 상태 단순화와 PO 연계 기준 변경 요구를 반영했다.
+현행 코드 근거를 바탕으로 단계별 구현/검증 작업과 데이터 호환 리스크를 정의했다.
+]]></change>
+  </changeLog>
+</plan>

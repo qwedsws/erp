@@ -52,7 +52,7 @@ export class CreatePurchaseRequestsFromBomUseCase {
       required_date: requiredDate.toISOString().split('T')[0],
       reason: `BOM 자동생성 (프로젝트)`,
       requested_by: input.requestedBy,
-      status: 'DRAFT' as const,
+      status: 'IN_PROGRESS' as const,
       project_id: input.projectId,
       ...(item.dimension_w
         ? {

@@ -2,11 +2,10 @@
 
 import React, { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, FileText, Check, X, Undo2, Trash2 } from 'lucide-react';
+import { ArrowLeft, FileText, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { StatusBadge } from '@/components/common/status-badge';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
-import { PromptDialog } from '@/components/common/prompt-dialog';
 import { usePurchaseRequests } from '@/hooks/procurement/usePurchaseRequests';
 import { useMaterials } from '@/hooks/materials/useMaterials';
 import { useProfiles } from '@/hooks/admin/useProfiles';
@@ -19,18 +18,13 @@ export default function PurchaseRequestDetailPage() {
   const router = useRouter();
   const {
     purchaseRequests,
-    approvePurchaseRequest,
-    rejectPurchaseRequest,
-    revokePurchaseRequest,
     deletePurchaseRequest,
   } = usePurchaseRequests();
   const { materials } = useMaterials();
   const { profiles } = useProfiles();
-  const { showError, showSuccess, showInfo } = useFeedbackToast();
+  const { showError, showSuccess } = useFeedbackToast();
 
-  const [isRejectDialogOpen, setIsRejectDialogOpen] = React.useState(false);
-  const [rejectReason, setRejectReason] = React.useState('');
-  const [confirmAction, setConfirmAction] = React.useState<'revoke' | 'delete' | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
 
   const pr = useMemo(
     () => purchaseRequests.find((r) => r.id === id),
@@ -42,10 +36,6 @@ export default function PurchaseRequestDetailPage() {
   );
   const requester = useMemo(
     () => (pr ? profiles.find((p) => p.id === pr.requested_by) : undefined),
-    [profiles, pr],
-  );
-  const approver = useMemo(
-    () => (pr?.approved_by ? profiles.find((p) => p.id === pr.approved_by) : undefined),
     [profiles, pr],
   );
 
@@ -64,52 +54,12 @@ export default function PurchaseRequestDetailPage() {
 
   const navigateToList = () => router.push('/materials/purchase-requests');
 
-  const handleApprove = async () => {
+  const confirmDelete = async () => {
     if (!pr) return;
-    const result = await approvePurchaseRequest(pr.id);
-    if (result.ok) showSuccess('구매 요청을 승인했습니다.');
-    else showError(result.error);
-  };
-
-  const openRejectDialog = () => {
-    setRejectReason('');
-    setIsRejectDialogOpen(true);
-  };
-
-  const confirmReject = async () => {
-    if (!pr) return;
-    const reason = rejectReason.trim();
-    if (!reason) {
-      showInfo('반려 사유를 입력하세요.');
-      return;
-    }
-    const result = await rejectPurchaseRequest(pr.id, reason);
-    if (result.ok) {
-      showSuccess('구매 요청을 반려했습니다.');
-      setIsRejectDialogOpen(false);
-    } else {
-      showError(result.error);
-    }
-  };
-
-  const confirmActionHandler = async () => {
-    if (!pr || !confirmAction) return;
-
-    if (confirmAction === 'revoke') {
-      const result = await revokePurchaseRequest(pr.id);
-      if (result.ok) {
-        showSuccess('승인/반려를 철회하고 승인대기로 되돌렸습니다.');
-        setConfirmAction(null);
-      } else {
-        showError(result.error);
-      }
-      return;
-    }
-
     const result = await deletePurchaseRequest(pr.id);
     if (result.ok) {
       showSuccess('구매 요청을 삭제했습니다.');
-      setConfirmAction(null);
+      setIsDeleteDialogOpen(false);
       router.push('/materials/purchase-requests');
     } else {
       showError(result.error);
@@ -143,53 +93,19 @@ export default function PurchaseRequestDetailPage() {
         description={material?.name || '자재 미지정'}
         actions={
           pr.status === 'IN_PROGRESS' ? (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => void handleApprove()}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
-              >
-                <Check size={16} />
-                승인
-              </button>
-              <button
-                onClick={openRejectDialog}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
-              >
-                <X size={16} />
-                반려
-              </button>
-              <button
-                onClick={() => setConfirmAction('delete')}
-                className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-300 text-red-700 rounded-md text-sm font-medium hover:bg-red-50 transition-colors"
-              >
-                <Trash2 size={16} />
-                삭제
-              </button>
-            </div>
-          ) : pr.status === 'APPROVED' || pr.status === 'REJECTED' ? (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setConfirmAction('revoke')}
-                className="inline-flex items-center gap-1.5 px-4 py-2 border border-orange-300 text-orange-700 rounded-md text-sm font-medium hover:bg-orange-50 transition-colors"
-              >
-                <Undo2 size={16} />
-                철회
-              </button>
-              <button
-                onClick={() => setConfirmAction('delete')}
-                className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-300 text-red-700 rounded-md text-sm font-medium hover:bg-red-50 transition-colors"
-              >
-                <Trash2 size={16} />
-                삭제
-              </button>
-            </div>
-          ) : pr.status === 'DRAFT' ? (
             <button
-              onClick={() => setConfirmAction('delete')}
+              onClick={() => setIsDeleteDialogOpen(true)}
               className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-300 text-red-700 rounded-md text-sm font-medium hover:bg-red-50 transition-colors"
             >
               <Trash2 size={16} />
               삭제
+            </button>
+          ) : pr.status === 'COMPLETED' && pr.po_id ? (
+            <button
+              onClick={() => router.push(`/materials/purchase-orders/${pr.po_id}`)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              발주 상세 보기
             </button>
           ) : undefined
         }
@@ -290,38 +206,17 @@ export default function PurchaseRequestDetailPage() {
         </div>
       )}
 
-      {/* Approval info card */}
-      {(pr.status === 'APPROVED' || pr.status === 'REJECTED' || pr.status === 'COMPLETED') && (
+      {/* Linked PO card */}
+      {pr.po_id && (
         <div className="rounded-lg border border-border bg-card p-6 mb-6">
-          <h3 className="font-semibold mb-4">승인/반려 정보</h3>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">처리자</span>
-              <p className="mt-0.5">{approver?.name || '-'}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">처리일시</span>
-              <p className="mt-0.5">
-                {pr.approved_at ? new Date(pr.approved_at).toLocaleString('ko-KR') : '-'}
-              </p>
-            </div>
-            {pr.reject_reason && (
-              <div className="col-span-2">
-                <span className="text-muted-foreground">반려 사유</span>
-                <p className="mt-0.5 text-red-600">{pr.reject_reason}</p>
-              </div>
-            )}
-            {pr.po_id && (
-              <div>
-                <span className="text-muted-foreground">연결 발주</span>
-                <button
-                  onClick={() => router.push(`/materials/purchase-orders/${pr.po_id}`)}
-                  className="block mt-0.5 text-primary hover:underline"
-                >
-                  발주 상세 보기
-                </button>
-              </div>
-            )}
+          <h3 className="font-semibold mb-4">연결 발주</h3>
+          <div className="text-sm">
+            <button
+              onClick={() => router.push(`/materials/purchase-orders/${pr.po_id}`)}
+              className="text-primary hover:underline"
+            >
+              발주 상세 보기
+            </button>
           </div>
         </div>
       )}
@@ -332,40 +227,17 @@ export default function PurchaseRequestDetailPage() {
         <p>수정: {new Date(pr.updated_at).toLocaleString('ko-KR')}</p>
       </div>
 
-      {/* Reject dialog */}
-      <PromptDialog
-        open={isRejectDialogOpen}
-        onOpenChange={(open) => {
-          setIsRejectDialogOpen(open);
-          if (!open) setRejectReason('');
-        }}
-        title="구매 요청 반려"
-        description="반려 사유를 입력하면 요청 상태가 반려로 변경됩니다."
-        inputLabel="반려 사유"
-        placeholder="예: 사양 불일치"
-        value={rejectReason}
-        onValueChange={setRejectReason}
-        confirmLabel="반려"
-        cancelLabel="취소"
-        confirmDisabled={!rejectReason.trim()}
-        onConfirm={() => void confirmReject()}
-      />
-
       <ConfirmDialog
-        open={confirmAction !== null}
+        open={isDeleteDialogOpen}
         onOpenChange={(open) => {
-          if (!open) setConfirmAction(null);
+          if (!open) setIsDeleteDialogOpen(false);
         }}
-        title={confirmAction === 'revoke' ? '승인/반려를 철회하시겠습니까?' : '구매 요청을 삭제하시겠습니까?'}
-        description={
-          confirmAction === 'revoke'
-            ? '요청 상태를 승인대기로 되돌립니다.'
-            : '삭제된 구매 요청은 복구할 수 없습니다.'
-        }
-        confirmLabel={confirmAction === 'revoke' ? '철회' : '삭제'}
+        title="구매 요청을 삭제하시겠습니까?"
+        description="삭제된 구매 요청은 복구할 수 없습니다."
+        confirmLabel="삭제"
         cancelLabel="취소"
-        confirmVariant={confirmAction === 'revoke' ? 'default' : 'destructive'}
-        onConfirm={() => void confirmActionHandler()}
+        confirmVariant="destructive"
+        onConfirm={() => void confirmDelete()}
       />
     </div>
   );

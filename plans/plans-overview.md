@@ -9,6 +9,8 @@
 - `plans/admin-hydration-pagination-plan.xml`: 완료된 서버 페이지네이션 계획
 - `plans/project-e2e-flow-consistency-plan.xml`: 프로젝트 기준 E2E 데이터 흐름 일관성 계획
 - `plans/project-e2e-flow-consistency-handoff.md`: 실행 핸드오프
+- `plans/materials-pr-po-status-workflow-plan.xml`: PR→PO→입고 완료 상태 전이 정렬 계획
+- `plans/pr-status-simplification-plan.xml`: 구매요청 승인/반려 제거 + 진행중 기반 발주 연계 전환 계획
 
 ## Completed Plans
 ### project-e2e-flow-consistency (P0-P5 전체 완료)
@@ -30,3 +32,5 @@
 ## Notes
 - 계획 문서 수정 범위는 `plans/**`, `**/*-overview.md`로 제한한다.
 - 코드 수정이 필요하면 plan의 `externalChanges` 항목을 기준으로 작업한다.
+- 최신 워크플로우 변경 요청은 `materials-pr-po-status-workflow-plan.xml`을 우선 참조한다.
+- 구매요청 상태 단순화 작업은 `pr-status-simplification-plan.xml`을 우선 참조한다.

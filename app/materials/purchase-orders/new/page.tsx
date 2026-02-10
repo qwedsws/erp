@@ -63,7 +63,7 @@ export default function NewPurchaseOrderPage() {
       </div>
       <PageHeader title="발주 등록" description="새로운 구매 발주를 등록합니다" />
 
-      <form onSubmit={handleSubmit} className="max-w-5xl">
+      <form onSubmit={handleSubmit}>
         {/* Basic Info */}
         <div className="rounded-lg border border-border bg-card p-6 space-y-4 mb-6">
           <h3 className="text-sm font-semibold">기본 정보</h3>
@@ -156,8 +156,8 @@ export default function NewPurchaseOrderPage() {
               ) : availablePRs.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">
                   {importedPrIds.length > 0
-                    ? '모든 승인된 구매요청을 불러왔습니다.'
-                    : '승인된 구매요청이 없습니다.'}
+                    ? '모든 진행중 구매요청을 불러왔습니다.'
+                    : '진행중 구매요청이 없습니다.'}
                 </p>
               ) : (
                 <>
@@ -274,16 +274,18 @@ export default function NewPurchaseOrderPage() {
             </button>
           </div>
 
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-lg border border-border overflow-x-auto">
+            <table className="w-full text-sm min-w-[960px]">
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground w-12">#</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">자재</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-24">수량</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-32">단가 (원)</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-36">소계</th>
-                  <th className="px-4 py-3 text-center font-medium text-muted-foreground w-12"></th>
+                  <th className="px-3 py-3 text-left font-medium text-muted-foreground w-10">#</th>
+                  <th className="px-3 py-3 text-left font-medium text-muted-foreground min-w-[200px]">자재</th>
+                  <th className="px-3 py-3 text-center font-medium text-muted-foreground w-[200px]">치수 W×L×H (mm)</th>
+                  <th className="px-3 py-3 text-right font-medium text-muted-foreground w-20">수량</th>
+                  <th className="px-3 py-3 text-right font-medium text-muted-foreground w-28">단가 (원)</th>
+                  <th className="px-3 py-3 text-right font-medium text-muted-foreground w-28">중량 (kg)</th>
+                  <th className="px-3 py-3 text-right font-medium text-muted-foreground w-32">소계</th>
+                  <th className="px-3 py-3 text-center font-medium text-muted-foreground w-10"></th>
                 </tr>
               </thead>
               <tbody>
@@ -295,9 +297,10 @@ export default function NewPurchaseOrderPage() {
                   const subtotal = calc.isSteel ? calc.subtotal : qty * price;
 
                   return (
-                    <tr key={index} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3 text-muted-foreground align-top">{index + 1}</td>
-                      <td className="px-4 py-3">
+                    <tr key={index} className="border-b border-border last:border-0 align-middle">
+                      <td className="px-3 py-2.5 text-muted-foreground">{index + 1}</td>
+                      {/* 자재 */}
+                      <td className="px-3 py-2.5">
                         <select
                           value={item.material_id}
                           onChange={(e) => updateItem(index, 'material_id', e.target.value)}
@@ -311,81 +314,51 @@ export default function NewPurchaseOrderPage() {
                           ))}
                         </select>
                         {selectedMaterial?.specification && (
-                          <p className="text-xs text-muted-foreground mt-0.5">{selectedMaterial.specification}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{selectedMaterial.specification}</p>
                         )}
                         {calc.isSteel && (
-                          <div className="mt-1.5 p-2 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs space-y-0.5">
-                            <p className="text-blue-700 dark:text-blue-300">
-                              밀도: {calc.density} g/cm3 | kg당 단가: {calc.pricePerKg.toLocaleString()} 원/kg
-                            </p>
-                          </div>
-                        )}
-
-                        {/* STEEL Dimension Inputs */}
-                        {calc.isSteel && (
-                          <div className="mt-2 space-y-2">
-                            <p className="text-xs font-medium text-muted-foreground">치수 (mm)</p>
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1">
-                                <label className="block text-[10px] text-muted-foreground mb-0.5">가로(W)</label>
-                                <input
-                                  type="number"
-                                  value={item.dimension_w}
-                                  onChange={(e) => updateItem(index, 'dimension_w', e.target.value)}
-                                  placeholder="0"
-                                  min="0"
-                                  className="w-full h-7 px-2 rounded border border-input bg-background text-xs text-right focus:outline-none focus:ring-2 focus:ring-ring"
-                                />
-                              </div>
-                              <span className="text-muted-foreground mt-3.5">x</span>
-                              <div className="flex-1">
-                                <label className="block text-[10px] text-muted-foreground mb-0.5">세로(L)</label>
-                                <input
-                                  type="number"
-                                  value={item.dimension_l}
-                                  onChange={(e) => updateItem(index, 'dimension_l', e.target.value)}
-                                  placeholder="0"
-                                  min="0"
-                                  className="w-full h-7 px-2 rounded border border-input bg-background text-xs text-right focus:outline-none focus:ring-2 focus:ring-ring"
-                                />
-                              </div>
-                              <span className="text-muted-foreground mt-3.5">x</span>
-                              <div className="flex-1">
-                                <label className="block text-[10px] text-muted-foreground mb-0.5">높이(H)</label>
-                                <input
-                                  type="number"
-                                  value={item.dimension_h}
-                                  onChange={(e) => updateItem(index, 'dimension_h', e.target.value)}
-                                  placeholder="0"
-                                  min="0"
-                                  className="w-full h-7 px-2 rounded border border-input bg-background text-xs text-right focus:outline-none focus:ring-2 focus:ring-ring"
-                                />
-                              </div>
-                            </div>
-                            {calc.pieceWeight > 0 && (
-                              <div className="p-2 rounded bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs space-y-0.5">
-                                <p className="text-emerald-700 dark:text-emerald-300">
-                                  건당 중량: {calc.pieceWeight.toFixed(3)} kg
-                                </p>
-                                {qty > 0 && (
-                                  <>
-                                    <p className="text-emerald-700 dark:text-emerald-300">
-                                      총 중량: {calc.totalWeight.toFixed(2)} kg
-                                    </p>
-                                    <p className="text-emerald-700 dark:text-emerald-300">
-                                      EA당 단가: {calc.unitPrice.toLocaleString()} 원
-                                    </p>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5">
+                            밀도 {calc.density} g/cm³ · {calc.pricePerKg.toLocaleString()} 원/kg
+                          </p>
                         )}
                       </td>
-                      <td className="px-4 py-3 align-top">
-                        {calc.isSteel && (
-                          <p className="text-xs text-muted-foreground mb-1">수량 (EA)</p>
+                      {/* 치수 W×L×H */}
+                      <td className="px-3 py-2.5">
+                        {calc.isSteel ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={item.dimension_w}
+                              onChange={(e) => updateItem(index, 'dimension_w', e.target.value)}
+                              placeholder="W"
+                              min="0"
+                              className="w-[56px] h-8 px-1.5 rounded border border-input bg-background text-xs text-right focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                            <span className="text-muted-foreground text-xs">×</span>
+                            <input
+                              type="number"
+                              value={item.dimension_l}
+                              onChange={(e) => updateItem(index, 'dimension_l', e.target.value)}
+                              placeholder="L"
+                              min="0"
+                              className="w-[56px] h-8 px-1.5 rounded border border-input bg-background text-xs text-right focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                            <span className="text-muted-foreground text-xs">×</span>
+                            <input
+                              type="number"
+                              value={item.dimension_h}
+                              onChange={(e) => updateItem(index, 'dimension_h', e.target.value)}
+                              placeholder="H"
+                              min="0"
+                              className="w-[56px] h-8 px-1.5 rounded border border-input bg-background text-xs text-right focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-center block">-</span>
                         )}
+                      </td>
+                      {/* 수량 */}
+                      <td className="px-3 py-2.5">
                         <input
                           type="number"
                           value={item.quantity}
@@ -395,34 +368,48 @@ export default function NewPurchaseOrderPage() {
                           className="w-full h-8 px-2 rounded border border-input bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
                         />
                       </td>
-                      <td className="px-4 py-3 align-top">
-                        {calc.isSteel ? (
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">kg당 단가</p>
-                            <input
-                              type="number"
-                              value={item.unit_price}
-                              onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
-                              placeholder="0"
-                              min="0"
-                              className="w-full h-8 px-2 rounded border border-input bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
-                            />
-                          </div>
-                        ) : (
-                          <input
-                            type="number"
-                            value={item.unit_price}
-                            onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
-                            placeholder="0"
-                            min="0"
-                            className="w-full h-8 px-2 rounded border border-input bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
-                          />
+                      {/* 단가 */}
+                      <td className="px-3 py-2.5">
+                        <input
+                          type="number"
+                          value={item.unit_price}
+                          onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                        {calc.isSteel && (
+                          <p className="text-[11px] text-muted-foreground mt-0.5 text-right">원/kg</p>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right font-medium align-top">
-                        {subtotal > 0 ? `${subtotal.toLocaleString()}원` : '-'}
+                      {/* 중량 */}
+                      <td className="px-3 py-2.5 text-right">
+                        {calc.isSteel ? (
+                          calc.pieceWeight > 0 ? (
+                            <div className="text-xs space-y-0.5">
+                              <p>{calc.pieceWeight.toFixed(3)} <span className="text-muted-foreground">/ EA</span></p>
+                              {qty > 0 && (
+                                <p className="font-medium">{calc.totalWeight.toFixed(2)} <span className="text-muted-foreground">총</span></p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">치수 입력</span>
+                          )
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-center align-top">
+                      {/* 소계 */}
+                      <td className="px-3 py-2.5 text-right font-medium">
+                        {subtotal > 0 ? `${subtotal.toLocaleString()}원` : '-'}
+                        {calc.isSteel && calc.unitPrice > 0 && (
+                          <p className="text-[11px] text-muted-foreground font-normal mt-0.5">
+                            EA당 {calc.unitPrice.toLocaleString()}원
+                          </p>
+                        )}
+                      </td>
+                      {/* 삭제 */}
+                      <td className="px-3 py-2.5 text-center">
                         <button
                           type="button"
                           onClick={() => removeItem(index)}
@@ -438,8 +425,8 @@ export default function NewPurchaseOrderPage() {
               </tbody>
               <tfoot>
                 <tr className="bg-muted/30 border-t border-border">
-                  <td colSpan={4} className="px-4 py-3 text-right font-semibold">합계</td>
-                  <td className="px-4 py-3 text-right font-bold text-base">
+                  <td colSpan={6} className="px-3 py-3 text-right font-semibold">합계</td>
+                  <td className="px-3 py-3 text-right font-bold text-base">
                     {totalAmount > 0 ? `${totalAmount.toLocaleString()}원` : '-'}
                   </td>
                   <td></td>

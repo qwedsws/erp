@@ -16,7 +16,6 @@ export type StatusTab = PurchaseRequestStatus | 'ALL';
 export interface KpiCounts {
   total: number;
   inProgress: number;
-  approved: number;
   completed: number;
 }
 
@@ -24,10 +23,7 @@ export interface KpiCounts {
 
 export const STATUS_TABS: { key: StatusTab; label: string }[] = [
   { key: 'ALL', label: '전체' },
-  { key: 'DRAFT', label: '작성중' },
   { key: 'IN_PROGRESS', label: '진행중' },
-  { key: 'APPROVED', label: '승인' },
-  { key: 'REJECTED', label: '반려' },
   { key: 'COMPLETED', label: '완료' },
 ];
 
@@ -39,9 +35,6 @@ export function usePurchaseRequestsPageData() {
   const { suppliers } = useSuppliers();
   const {
     purchaseRequests,
-    approvePurchaseRequest,
-    rejectPurchaseRequest,
-    revokePurchaseRequest,
     deletePurchaseRequest,
     convertRequestsToPO,
   } = usePurchaseRequests();
@@ -53,11 +46,6 @@ export function usePurchaseRequestsPageData() {
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [showConvertPanel, setShowConvertPanel] = useState(false);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
-  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
-  const [rejectTargetIds, setRejectTargetIds] = useState<string[]>([]);
-  const [rejectReason, setRejectReason] = useState('');
-  const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
-  const [revokeTargetIds, setRevokeTargetIds] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([]);
 
@@ -75,40 +63,24 @@ export function usePurchaseRequestsPageData() {
   const kpiCounts = useMemo<KpiCounts>(() => {
     const total = listQuery.total;
     const inProgress = purchaseRequests.filter((pr) => pr.status === 'IN_PROGRESS').length;
-    const approved = purchaseRequests.filter((pr) => pr.status === 'APPROVED').length;
     const completed = purchaseRequests.filter((pr) => pr.status === 'COMPLETED').length;
-    return { total, inProgress, approved, completed };
+    return { total, inProgress, completed };
   }, [listQuery.total, purchaseRequests]);
 
   // Server-side paginated items
   const items = listQuery.items;
 
-  const approvedIds = useMemo(() => {
-    return new Set(items.filter((pr) => pr.status === 'APPROVED').map((pr) => pr.id));
+  const inProgressIds = useMemo(() => {
+    return new Set(items.filter((pr) => pr.status === 'IN_PROGRESS').map((pr) => pr.id));
   }, [items]);
 
-  const hasCheckedApproved = useMemo(() => {
-    return [...checkedIds].some((id) => approvedIds.has(id));
-  }, [checkedIds, approvedIds]);
+  const hasCheckedInProgress = useMemo(() => {
+    return [...checkedIds].some((id) => inProgressIds.has(id));
+  }, [checkedIds, inProgressIds]);
 
-  const checkedApprovedCount = useMemo(() => {
-    return [...checkedIds].filter((id) => approvedIds.has(id)).length;
-  }, [checkedIds, approvedIds]);
-
-  // Selection counts for toolbar buttons
-  const selectedPendingCount = useMemo(() => {
-    return [...checkedIds].filter((id) => {
-      const pr = items.find((p) => p.id === id);
-      return pr?.status === 'IN_PROGRESS';
-    }).length;
-  }, [checkedIds, items]);
-
-  const selectedCanRevokeCount = useMemo(() => {
-    return [...checkedIds].filter((id) => {
-      const pr = items.find((p) => p.id === id);
-      return pr && (pr.status === 'APPROVED' || pr.status === 'REJECTED');
-    }).length;
-  }, [checkedIds, items]);
+  const checkedInProgressCount = useMemo(() => {
+    return [...checkedIds].filter((id) => inProgressIds.has(id)).length;
+  }, [checkedIds, inProgressIds]);
 
   const selectedCanDeleteCount = useMemo(() => {
     return [...checkedIds].filter((id) => {
@@ -125,124 +97,6 @@ export function usePurchaseRequestsPageData() {
     },
     [listQuery],
   );
-
-  // --- Handlers: Batch approve (direct, no dialog) ---
-  const batchApprove = useCallback(async () => {
-    const pendingIds = [...checkedIds].filter((id) => {
-      const pr = items.find((p) => p.id === id);
-      return pr?.status === 'IN_PROGRESS';
-    });
-    if (pendingIds.length === 0) {
-      showInfo('승인할 대기 건이 없습니다.');
-      return;
-    }
-    let successCount = 0;
-    for (const id of pendingIds) {
-      const result = await approvePurchaseRequest(id);
-      if (result.ok) successCount++;
-    }
-    if (successCount > 0) {
-      showSuccess(`${successCount}건의 구매 요청을 승인했습니다.`);
-      setCheckedIds((prev) => {
-        const next = new Set(prev);
-        pendingIds.forEach((id) => next.delete(id));
-        return next;
-      });
-      listQuery.refresh();
-    }
-  }, [checkedIds, items, approvePurchaseRequest, showInfo, showSuccess, listQuery]);
-
-  // --- Handlers: Reject dialog ---
-  const openRejectDialog = useCallback(() => {
-    const pendingIds = [...checkedIds].filter((id) => {
-      const pr = items.find((p) => p.id === id);
-      return pr?.status === 'IN_PROGRESS';
-    });
-    if (pendingIds.length === 0) {
-      showInfo('반려할 대기 건이 없습니다.');
-      return;
-    }
-    setRejectTargetIds(pendingIds);
-    setRejectReason('');
-    setIsRejectDialogOpen(true);
-  }, [checkedIds, items, showInfo]);
-
-  const closeRejectDialog = useCallback((open: boolean) => {
-    setIsRejectDialogOpen(open);
-    if (!open) {
-      setRejectTargetIds([]);
-      setRejectReason('');
-    }
-  }, []);
-
-  const confirmReject = useCallback(async () => {
-    if (rejectTargetIds.length === 0) return;
-    const reason = rejectReason.trim();
-    if (!reason) {
-      showInfo('반려 사유를 입력하세요.');
-      return;
-    }
-    let successCount = 0;
-    for (const id of rejectTargetIds) {
-      const result = await rejectPurchaseRequest(id, reason);
-      if (result.ok) successCount++;
-    }
-    if (successCount > 0) {
-      showSuccess(`${successCount}건의 구매 요청을 반려했습니다.`);
-      setIsRejectDialogOpen(false);
-      setCheckedIds((prev) => {
-        const next = new Set(prev);
-        rejectTargetIds.forEach((id) => next.delete(id));
-        return next;
-      });
-      setRejectTargetIds([]);
-      setRejectReason('');
-      listQuery.refresh();
-    } else {
-      showError('반려 처리에 실패했습니다.');
-    }
-  }, [rejectTargetIds, rejectReason, rejectPurchaseRequest, showError, showInfo, showSuccess, listQuery]);
-
-  // --- Handlers: Revoke ---
-  const openRevokeDialog = useCallback(() => {
-    const revokeIds = [...checkedIds].filter((id) => {
-      const pr = items.find((p) => p.id === id);
-      return pr && (pr.status === 'APPROVED' || pr.status === 'REJECTED');
-    });
-    if (revokeIds.length === 0) {
-      showInfo('철회할 승인/반려 건이 없습니다.');
-      return;
-    }
-    setRevokeTargetIds(revokeIds);
-    setIsRevokeDialogOpen(true);
-  }, [checkedIds, items, showInfo]);
-
-  const closeRevokeDialog = useCallback((open: boolean) => {
-    setIsRevokeDialogOpen(open);
-    if (!open) setRevokeTargetIds([]);
-  }, []);
-
-  const confirmRevoke = useCallback(async () => {
-    if (revokeTargetIds.length === 0) return;
-    let successCount = 0;
-    for (const id of revokeTargetIds) {
-      const result = await revokePurchaseRequest(id);
-      if (result.ok) successCount++;
-    }
-    if (successCount > 0) {
-      showSuccess(`${successCount}건의 승인/반려를 철회했습니다.`);
-      setIsRevokeDialogOpen(false);
-      setCheckedIds((prev) => {
-        const next = new Set(prev);
-        revokeTargetIds.forEach((id) => next.delete(id));
-        return next;
-      });
-      setRevokeTargetIds([]);
-      listQuery.refresh();
-    } else {
-      showError('철회 처리에 실패했습니다.');
-    }
-  }, [revokeTargetIds, revokePurchaseRequest, showError, showSuccess, listQuery]);
 
   // --- Handlers: Delete ---
   const openDeleteDialog = useCallback(() => {
@@ -311,20 +165,20 @@ export function usePurchaseRequestsPageData() {
     });
   }, [items]);
 
-  const toggleAllApproved = useCallback(() => {
+  const toggleAllInProgress = useCallback(() => {
     setCheckedIds((prev) => {
-      const allChecked = [...approvedIds].every((id) => prev.has(id));
+      const allChecked = [...inProgressIds].every((id) => prev.has(id));
       if (allChecked) {
         const next = new Set(prev);
-        approvedIds.forEach((id) => next.delete(id));
+        inProgressIds.forEach((id) => next.delete(id));
         return next;
       } else {
         const next = new Set(prev);
-        approvedIds.forEach((id) => next.add(id));
+        inProgressIds.forEach((id) => next.add(id));
         return next;
       }
     });
-  }, [approvedIds]);
+  }, [inProgressIds]);
 
   const selectSingleAndShowPanel = useCallback((id: string) => {
     setCheckedIds(new Set([id]));
@@ -337,9 +191,9 @@ export function usePurchaseRequestsPageData() {
       showInfo('공급처를 선택하세요.');
       return;
     }
-    const ids = [...checkedIds].filter((id) => approvedIds.has(id));
+    const ids = [...checkedIds].filter((id) => inProgressIds.has(id));
     if (ids.length === 0) {
-      showInfo('발주 전환할 승인 건을 선택하세요.');
+      showInfo('발주 전환할 진행중 건을 선택하세요.');
       return;
     }
     const pos = await convertRequestsToPO(ids, selectedSupplierId);
@@ -358,7 +212,7 @@ export function usePurchaseRequestsPageData() {
     setShowConvertPanel(false);
     setSelectedSupplierId('');
     listQuery.refresh();
-  }, [checkedIds, approvedIds, selectedSupplierId, convertRequestsToPO, showError, showInfo, showSuccess, listQuery]);
+  }, [checkedIds, inProgressIds, selectedSupplierId, convertRequestsToPO, showError, showInfo, showSuccess, listQuery]);
 
   const hideConvertPanel = useCallback(() => {
     setShowConvertPanel(false);
@@ -384,33 +238,15 @@ export function usePurchaseRequestsPageData() {
     setStatusFilter: handleSetStatusFilter,
     // Selection
     checkedIds,
-    approvedIds,
-    hasCheckedApproved,
-    checkedApprovedCount,
+    inProgressIds,
+    hasCheckedInProgress,
+    checkedInProgressCount,
     toggleCheck,
     toggleAll,
-    toggleAllApproved,
+    toggleAllInProgress,
     selectSingleAndShowPanel,
     // Selection counts for toolbar
-    selectedPendingCount,
-    selectedCanRevokeCount,
     selectedCanDeleteCount,
-    // Batch approve
-    batchApprove,
-    // Reject dialog
-    isRejectDialogOpen,
-    rejectTargetIds,
-    rejectReason,
-    openRejectDialog,
-    closeRejectDialog,
-    setRejectReason,
-    confirmReject,
-    // Revoke dialog
-    isRevokeDialogOpen,
-    revokeTargetIds,
-    openRevokeDialog,
-    closeRevokeDialog,
-    confirmRevoke,
     // Delete dialog
     isDeleteDialogOpen,
     deleteTargetIds,

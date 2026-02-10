@@ -45,7 +45,7 @@ function emptyCalc(): SteelCalc {
  * - STEEL dimension inputs with auto-calculated weight/price
  * - Total amount calculation (including STEEL weight-based pricing)
  * - Form submission via createPurchaseOrder use-case
- * - Import approved Purchase Requests into PO items
+ * - Import in-progress Purchase Requests into PO items
  */
 export function usePurchaseOrderForm() {
   const router = useRouter();
@@ -68,13 +68,13 @@ export function usePurchaseOrderForm() {
   ]);
 
   // --- PR Import state ---
-  const [approvedPRs, setApprovedPRs] = useState<PurchaseRequest[]>([]);
+  const [inProgressPRs, setInProgressPRs] = useState<PurchaseRequest[]>([]);
   const [prsLoading, setPrsLoading] = useState(false);
   const [selectedPrIds, setSelectedPrIds] = useState<Set<string>>(new Set());
   const [importedPrIds, setImportedPrIds] = useState<string[]>([]);
   const [importNotice, setImportNotice] = useState<string | null>(null);
 
-  // Fetch approved PRs from repository on mount
+  // Fetch in-progress PRs from repository on mount
   const prRepo = useMemo(() => getPurchaseRequestRepository(), []);
 
   useEffect(() => {
@@ -82,8 +82,8 @@ export function usePurchaseOrderForm() {
     setPrsLoading(true);
     void prRepo.findAll().then((all) => {
       if (!cancelled) {
-        const approved = all.filter((pr) => pr.status === 'APPROVED');
-        setApprovedPRs(approved);
+        const inProgress = all.filter((pr) => pr.status === 'IN_PROGRESS');
+        setInProgressPRs(inProgress);
         setPrsLoading(false);
       }
     }).catch(() => {
@@ -95,8 +95,8 @@ export function usePurchaseOrderForm() {
   // Filter out already-imported PRs
   const availablePRs = useMemo(() => {
     const importedSet = new Set(importedPrIds);
-    return approvedPRs.filter((pr) => !importedSet.has(pr.id));
-  }, [approvedPRs, importedPrIds]);
+    return inProgressPRs.filter((pr) => !importedSet.has(pr.id));
+  }, [inProgressPRs, importedPrIds]);
 
   // O(1) lookup Maps
   const materialById = useMemo(
@@ -139,7 +139,7 @@ export function usePurchaseOrderForm() {
       return;
     }
 
-    const selectedPRs = approvedPRs.filter((pr) => selectedPrIds.has(pr.id));
+    const selectedPRs = inProgressPRs.filter((pr) => selectedPrIds.has(pr.id));
     if (selectedPRs.length === 0) return;
 
     // Create POItemForm entries from selected PRs
@@ -188,7 +188,7 @@ export function usePurchaseOrderForm() {
     // Clear selection
     setSelectedPrIds(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPrIds, approvedPRs, materialById, form.project_id]);
+  }, [selectedPrIds, inProgressPRs, materialById, form.project_id]);
 
   /** Compute STEEL calculations for a single item */
   const calcSteelItem = (item: POItemForm): SteelCalc => {
